@@ -412,6 +412,16 @@ model WeeklySlot {
   group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
   groupId String?
 
+  // Récurrence :
+  //  - oneOff = false (défaut) → séance récurrente : se répète chaque semaine, le
+  //    jour `weekday`, pendant ~1 mois à partir de `startDate` ;
+  //  - oneOff = true → séance ponctuelle : une seule occurrence, à la date
+  //    `startDate` (dont on déduit le jour de la semaine).
+  // `startDate` est l'ancre : date de création (récurrent) ou date choisie
+  // (ponctuel). Null pour les anciens créneaux → traités comme récurrents illimités.
+  oneOff    Boolean   @default(false)
+  startDate DateTime?
+
   @@index([weekday])
   @@index([groupId])
 }
@@ -476,6 +486,10 @@ model Program {
   createdById String?
 
   sessions ProgramSession[]
+
+  // Index des accès chauds : programme actif par client / par objectif.
+  @@index([clientId, status])
+  @@index([goalId, status])
 }
 
 // Une "session" de programme = une journée d'entraînement du programme.

@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/admin/groupes", label: "Groupes", icon: "users", roles: ["ADMIN", "COACH"] },
   { href: "/coach", label: "Interface coach", icon: "dumbbell", roles: ["ADMIN", "COACH"] },
   { href: "/admin/objectifs", label: "Objectifs & programmes", icon: "target", roles: ["ADMIN"] },
+  { href: "/admin/programmes", label: "Programmes", icon: "note", roles: ["ADMIN", "COACH"] },
   { href: "/admin/messages", label: "Messages", icon: "message", roles: ["ADMIN", "COACH"] },
   { href: "/admin/seances", label: "Séances & planning", icon: "clock", roles: ["ADMIN"] },
   { href: "/admin/exercices", label: "Exercices", icon: "clipboard", roles: ["ADMIN"] },

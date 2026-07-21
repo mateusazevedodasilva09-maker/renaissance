@@ -4,7 +4,45 @@
  */
 import prisma from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
-import { WEEKDAYS } from "@/lib/dates";
+import { WEEKDAYS, startOfWeek, addDays } from "@/lib/dates";
+
+// Récurrence des créneaux : une séance récurrente se répète chaque semaine
+// pendant ~1 mois (4 semaines) à partir de sa date d'ancrage ; une séance
+// ponctuelle n'a qu'une seule occurrence, à sa date.
+const RECUR_DAYS = 28;
+// Parse une valeur date en LOCAL : une chaîne « YYYY-MM-DD » (input date) serait
+// sinon interprétée en UTC → décalage d'un jour dans les fuseaux négatifs.
+const toLocalDate = (v) => {
+  if (v instanceof Date) return v;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ""));
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(v);
+};
+const startOfDay = (d) => { const x = toLocalDate(d); x.setHours(0, 0, 0, 0); return x; };
+const sameDay = (a, b) => startOfDay(a).getTime() === startOfDay(b).getTime();
+
+/** Le créneau a-t-il une occurrence à cette date précise ? */
+export function slotOccursOnDate(slot, date) {
+  const wd = WEEKDAYS[(new Date(date).getDay() + 6) % 7];
+  if (slot.oneOff) return slot.startDate ? sameDay(slot.startDate, date) : false;
+  if (slot.weekday !== wd) return false;
+  if (!slot.startDate) return true; // ancien créneau → récurrent illimité
+  const s = startOfDay(slot.startDate);
+  return startOfDay(date) >= s && startOfDay(date) <= addDays(s, RECUR_DAYS);
+}
+
+/** Le créneau est-il actif au cours de la semaine (lundi = `weekStart`) ? */
+function slotActiveInWeek(slot, weekStart) {
+  const wkStart = startOfDay(weekStart);
+  const wkEnd = addDays(wkStart, 6);
+  if (slot.oneOff) {
+    if (!slot.startDate) return false;
+    const d = startOfDay(slot.startDate);
+    return d >= wkStart && d <= wkEnd;
+  }
+  if (!slot.startDate) return true; // récurrent illimité (legacy)
+  const s = startOfDay(slot.startDate);
+  return s <= wkEnd && addDays(s, RECUR_DAYS) >= wkStart; // fenêtre ∩ semaine
+}
 
 // --- Types de séances -------------------------------------------------------
 
@@ -139,24 +177,45 @@ export function listSlots() {
   });
 }
 
-export async function createSlot({ weekday, startTime, endTime, sessionTypeId, location, capacity, groupId }) {
-  if (!WEEKDAYS.includes(weekday)) throw new ApiError("Jour invalide.");
+export async function createSlot({ weekday, startTime, endTime, sessionTypeId, location, capacity, groupId, oneOff, startDate }) {
   if (!/^\d{2}:\d{2}$/.test(startTime || "") || !/^\d{2}:\d{2}$/.test(endTime || "")) {
     throw new ApiError("Horaires invalides (format HH:MM).");
   }
   if (startTime >= endTime) throw new ApiError("L'heure de fin doit être après l'heure de début.");
   if (!sessionTypeId) throw new ApiError("Type de séance requis.");
-  await assertCoachFree({ groupId: groupId || null, weekday, startTime, endTime });
+
+  const once = !!oneOff;
+  let anchor;
+  let day = weekday;
+  if (once) {
+    // Séance ponctuelle : la date choisie est obligatoire ; on en déduit le jour.
+    if (!startDate) throw new ApiError("Choisissez une date pour la séance ponctuelle.");
+    anchor = startOfDay(startDate);
+    day = WEEKDAYS[(anchor.getDay() + 6) % 7];
+  } else {
+    // Séance récurrente (~1 mois) : ancre = date fournie ou aujourd'hui.
+    if (!WEEKDAYS.includes(day)) throw new ApiError("Jour invalide.");
+    anchor = startOfDay(startDate || new Date());
+  }
+
+  await assertCoachFree({ groupId: groupId || null, weekday: day, startTime, endTime });
   return prisma.weeklySlot.create({
-    data: { weekday, startTime, endTime, sessionTypeId, location, capacity: capacity || null, groupId: groupId || null },
+    data: {
+      weekday: day, startTime, endTime, sessionTypeId,
+      location, capacity: capacity || null, groupId: groupId || null,
+      oneOff: once, startDate: anchor,
+    },
     include: slotInclude,
   });
 }
 
 export async function updateSlot(id, data) {
-  const allowed = ["weekday", "startTime", "endTime", "sessionTypeId", "location", "capacity", "isActive", "groupId"];
+  const allowed = ["weekday", "startTime", "endTime", "sessionTypeId", "location", "capacity", "isActive", "groupId", "oneOff", "startDate"];
   const patch = Object.fromEntries(Object.entries(data).filter(([k]) => allowed.includes(k)));
   if ("groupId" in patch) patch.groupId = patch.groupId || null;
+  if ("startDate" in patch && patch.startDate) patch.startDate = startOfDay(patch.startDate);
+  // Séance ponctuelle : le jour se déduit de la date.
+  if (patch.oneOff && patch.startDate) patch.weekday = WEEKDAYS[(patch.startDate.getDay() + 6) % 7];
   // Revalider le chevauchement horaire du coach si le placement ou l'horaire change.
   if (["groupId", "weekday", "startTime", "endTime"].some((k) => k in patch)) {
     const current = await prisma.weeklySlot.findUnique({
@@ -193,8 +252,10 @@ export async function getClientWeeklySchedule(clientId) {
     listSlots(),
   ]);
   const goalIds = new Set(clientGoals.map((g) => g.goalId));
+  const week = startOfWeek();
   return slots.filter((slot) => {
     if (!slot.isActive || !slot.sessionType.isActive) return false;
+    if (!slotActiveInWeek(slot, week)) return false; // récurrence bornée / ponctuelle
     if (slot.groupId) return slot.groupId === client?.groupId; // placement explicite
     const links = slot.sessionType.goalLinks;
     if (links.length === 0) return true; // séance ouverte à tous
@@ -215,8 +276,10 @@ export async function getCoachWeeklySchedule(coachUserId) {
   const groupIds = new Set(groups.map((g) => g.id));
   const goalIds = new Set(groups.map((g) => g.goalId).filter(Boolean));
   const slots = await listSlots();
+  const week = startOfWeek();
   return slots.filter((slot) => {
     if (!slot.isActive || !slot.sessionType.isActive) return false;
+    if (!slotActiveInWeek(slot, week)) return false; // récurrence bornée / ponctuelle
     if (slot.groupId) return groupIds.has(slot.groupId); // placement explicite
     const links = slot.sessionType.goalLinks;
     if (links.length === 0) return true; // séance ouverte à tous
@@ -251,7 +314,8 @@ export async function getCoachDayView(coachUserId, date = new Date()) {
       orderBy: { createdAt: "asc" },
     }),
   ]);
-  return { weekday, slots: allSlots.filter((s) => s.weekday === weekday), groups };
+  // Occurrence réelle du jour (récurrence bornée + séances ponctuelles).
+  return { weekday, slots: allSlots.filter((s) => slotOccursOnDate(s, date)), groups };
 }
 
 // --- Objectifs ---------------------------------------------------------------

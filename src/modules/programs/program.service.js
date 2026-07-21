@@ -180,6 +180,22 @@ export async function generateProgram({ clientId, goalId, generatorKey, params =
   });
 }
 
+/**
+ * Liste de TOUS les programmes (page « Programmes ») : générés par objectif ou
+ * par client, actifs / archivés / modèles. Chacun porte sa cible, son statut,
+ * son nombre de séances et sa date.
+ */
+export function listAllPrograms() {
+  return prisma.program.findMany({
+    include: {
+      client: { include: { user: { select: { firstName: true, lastName: true } } } },
+      goal: { select: { id: true, label: true } },
+      _count: { select: { sessions: true } },
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+}
+
 export async function updateProgram(id, { title, status, notes }) {
   const program = await prisma.program.findUnique({ where: { id } });
   if (!program) throw new ApiError("Programme introuvable.", 404);

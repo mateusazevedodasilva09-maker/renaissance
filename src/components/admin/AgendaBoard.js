@@ -27,6 +27,23 @@ const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 // Jour de la semaine (enum Prisma) à partir d'une date JS : (getDay()+6)%7 → 0 = lundi.
 const WEEKDAY_ENUM = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
+// Récurrence bornée à ~1 mois (aligné sur le back-end schedule.service).
+const RECUR_DAYS = 28;
+const atStartOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+/** Le créneau a-t-il une occurrence ce jour-là ? (récurrence bornée + ponctuel) */
+function slotOccursOn(slot, day) {
+  if (slot.isActive === false) return false;
+  const wd = WEEKDAY_ENUM[(day.getDay() + 6) % 7];
+  if (slot.oneOff) return slot.startDate ? atStartOfDay(slot.startDate).getTime() === atStartOfDay(day).getTime() : false;
+  if (slot.weekday !== wd) return false;
+  if (!slot.startDate) return true; // ancien créneau → récurrent illimité
+  const s = atStartOfDay(slot.startDate);
+  const end = new Date(s); end.setDate(end.getDate() + RECUR_DAYS);
+  const d = atStartOfDay(day);
+  return d >= s && d <= end;
+}
+
 function fmt(dt) {
   return dt ? new Date(dt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 }
@@ -140,9 +157,8 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
     const out = [];
     weeks.forEach((week) =>
       week.forEach((day) => {
-        const wd = WEEKDAY_ENUM[(day.getDay() + 6) % 7];
         coachSlots
-          .filter((s) => s.weekday === wd && s.isActive !== false)
+          .filter((s) => slotOccursOn(s, day))
           .forEach((s) => {
             const [hh, mm] = (s.startTime || "00:00").split(":");
             const date = new Date(day);

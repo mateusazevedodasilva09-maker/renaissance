@@ -65,7 +65,7 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
 
   // Formulaires
   const [typeForm, setTypeForm] = useState({ name: "", color: "#e05d38", description: "" });
-  const [slotForm, setSlotForm] = useState({ weekday: "MONDAY", startTime: "18:30", endTime: "19:30", sessionTypeId: "", groupId: "" });
+  const [slotForm, setSlotForm] = useState({ weekday: "MONDAY", startTime: "18:30", endTime: "19:30", sessionTypeId: "", groupId: "", oneOff: false, startDate: "" });
   const [goalLabel, setGoalLabel] = useState("");
 
   async function addType(e) {
@@ -157,6 +157,15 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
                             {s.groupId && (
                               <span className="badge" style={{ padding: "1px 8px", fontSize: 10.5, borderColor: "var(--accent)", color: "var(--accent)" }}>placé</span>
                             )}
+                            {s.oneOff ? (
+                              <span className="badge" style={{ padding: "1px 8px", fontSize: 10.5 }} title="Séance ponctuelle (une seule fois)">
+                                ponctuelle{s.startDate ? ` · ${new Date(s.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}` : ""}
+                              </span>
+                            ) : (
+                              <span className="badge" style={{ padding: "1px 8px", fontSize: 10.5 }} title="Se répète chaque semaine pendant ~1 mois">
+                                ~1 mois
+                              </span>
+                            )}
                           </div>
                           <button
                             className="btn btn-sm btn-danger"
@@ -175,10 +184,23 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
           })}
         </div>
 
-        <form onSubmit={addSlot} className="flex wrap mt">
-          <select className="input" style={{ width: "auto" }} value={slotForm.weekday} onChange={(e) => setSlotForm({ ...slotForm, weekday: e.target.value })}>
-            {WEEKDAYS.map((d) => <option key={d} value={d}>{DAY_LABELS[d]}</option>)}
-          </select>
+        <form onSubmit={addSlot} className="flex wrap mt" style={{ alignItems: "center" }}>
+          {/* Récurrente (par jour, ~1 mois) OU ponctuelle (une date). */}
+          {slotForm.oneOff ? (
+            <input
+              className="input"
+              style={{ width: "auto" }}
+              type="date"
+              required
+              value={slotForm.startDate}
+              onChange={(e) => setSlotForm({ ...slotForm, startDate: e.target.value })}
+              title="Date de la séance ponctuelle"
+            />
+          ) : (
+            <select className="input" style={{ width: "auto" }} value={slotForm.weekday} onChange={(e) => setSlotForm({ ...slotForm, weekday: e.target.value })}>
+              {WEEKDAYS.map((d) => <option key={d} value={d}>{DAY_LABELS[d]}</option>)}
+            </select>
+          )}
           {/* Groupe qui s'entraîne sur ce créneau. Laisser « — » = repli par
               objectif (comportement historique). */}
           <select className="input" style={{ width: "auto" }} value={slotForm.groupId} onChange={(e) => setSlotForm({ ...slotForm, groupId: e.target.value })} title="Groupe qui s'entraîne sur ce créneau">
@@ -191,8 +213,15 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
           </select>
           <input className="input" style={{ width: 110 }} type="time" value={slotForm.startTime} onChange={(e) => setSlotForm({ ...slotForm, startTime: e.target.value })} />
           <input className="input" style={{ width: 110 }} type="time" value={slotForm.endTime} onChange={(e) => setSlotForm({ ...slotForm, endTime: e.target.value })} />
-          <button className="btn btn-primary btn-sm">+ Ajouter le créneau</button>
+          <label className="badge" style={{ cursor: "pointer", borderColor: slotForm.oneOff ? "var(--accent)" : "var(--border)" }} title="Une seule fois, à une date précise (au lieu de se répéter ~1 mois)">
+            <input type="checkbox" checked={slotForm.oneOff} onChange={(e) => setSlotForm({ ...slotForm, oneOff: e.target.checked })} style={{ marginRight: 6 }} />
+            Ponctuelle
+          </label>
+          <button className="btn btn-primary btn-sm">+ Ajouter</button>
         </form>
+        <p className="muted small mt" style={{ margin: "8px 0 0" }}>
+          Par défaut une séance <strong>se répète chaque semaine pendant ~1 mois</strong>. Cochez « Ponctuelle » pour une séance unique à une date précise.
+        </p>
       </div>
 
       <div className="grid grid-2">

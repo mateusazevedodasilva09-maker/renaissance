@@ -5,6 +5,9 @@ export const metadata = {
   description: "Application de gestion de l'activité de coaching Renaissance.",
 };
 
+// Adaptation mobile : largeur réelle de l'appareil.
+export const viewport = { width: "device-width", initialScale: 1 };
+
 /** Applique le thème enregistré avant le premier rendu (évite le flash). */
 const themeScript = `
 try {

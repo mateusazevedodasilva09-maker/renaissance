@@ -622,6 +622,16 @@ textarea.input { resize: vertical; min-height: 84px; }
 .public-card h1 { font-size: 34px; }
 .public-card h2 { font-size: 26px; }
 
+/* Squelettes de chargement (loading.js) : effet shimmer, ressenti plus rapide. */
+.skeleton-block, .skeleton-line {
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--hover-row) 37%, var(--panel-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton 1.4s ease infinite;
+  border-radius: var(--radius);
+}
+.skeleton-line { border-radius: 6px; }
+@keyframes skeleton { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
@@ -629,10 +639,38 @@ textarea.input { resize: vertical; min-height: 84px; }
 @media (max-width: 900px) {
   .app-shell { flex-direction: column; }
   .sidebar {
-    width: 100%; height: auto; position: static;
-    flex-direction: row; flex-wrap: wrap;
+    width: 100%; height: auto; position: sticky; top: 0;
+    z-index: var(--z-sticky);
+    flex-direction: row; flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
     border-right: none; border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
   }
+  /* Menu en barre horizontale défilable : chaque lien garde sa taille. */
+  .sidebar .brand { padding: 6px 10px; flex-shrink: 0; }
+  .sidebar .section-label { display: none; }
+  .nav-link { flex-shrink: 0; white-space: nowrap; }
   .nav-link.active::before { display: none; }
+  /* Le bloc de pied (thème, déconnexion) repasse en ligne. */
+  .sidebar > div:last-child { margin-top: 0 !important; flex-direction: row !important; align-items: center; padding: 6px 10px !important; flex-shrink: 0; }
   .main { padding: 20px; }
+}
+
+/* Téléphone : on empile les grilles et on resserre les marges. */
+@media (max-width: 640px) {
+  .main { padding: 14px 14px 48px; }
+  h1 { font-size: 27px; }
+  h2 { font-size: 21px; }
+  .grid-2, .grid-4 { grid-template-columns: 1fr; }
+  .page-header { margin-bottom: 18px; }
+  .card { padding: 16px; border-radius: var(--radius); }
+  .form-row { flex-direction: column; gap: 0; }
+  .modal { padding: 18px; border-radius: var(--radius); }
+  .stat-value { font-size: 27px; }
+  .table { font-size: 13px; }
+  .table th, .table td { padding: 8px 7px; }
+  .cal-cell { min-height: 62px; }
+  .cal-event { font-size: 10px; }
+  .kanban-col { min-width: 210px; width: 210px; }
 }
