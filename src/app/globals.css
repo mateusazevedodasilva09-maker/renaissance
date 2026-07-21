@@ -162,8 +162,8 @@ body > * { position: relative; z-index: 1; }
   /* Dégradé accentué : noir · orange · mauve. Orange en haut à gauche, mauve
      en haut à droite, noir ancré en bas et dans le coin. */
   background:
-    radial-gradient(78% 70% at 8% -6%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 72%),
-    radial-gradient(78% 70% at 98% 2%, color-mix(in srgb, var(--violet) 58%, transparent), transparent 72%),
+    radial-gradient(78% 70% at 8% -6%, color-mix(in srgb, var(--accent) 43%, transparent), transparent 72%),
+    radial-gradient(78% 70% at 98% 2%, color-mix(in srgb, var(--violet) 41%, transparent), transparent 72%),
     radial-gradient(120% 92% at 50% 128%, #090807, transparent 72%),
     linear-gradient(155deg, #1a1410 0%, transparent 46%);
 }
