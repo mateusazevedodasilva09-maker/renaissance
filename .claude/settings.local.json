@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --version)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(npx -y skills add Leonxlnx/taste-skill --list)",
+      "Bash(npx -y skills add Leonxlnx/taste-skill -y)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Backup: état avant redesign UI avec taste-skill *)"
+    ]
+  }
+}

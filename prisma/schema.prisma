@@ -1,0 +1,772 @@
+// ---------------------------------------------------------------------------
+// Renaissance — Schéma de base de données (PostgreSQL)
+// ---------------------------------------------------------------------------
+// Organisé par domaine métier :
+//   1. Authentification & permissions
+//   2. CRM (prospects, pipeline, historique de contact)
+//   3. Agenda (tâches, appels / rendez-vous)
+//   4. Clients inscrits & objectifs
+//   5. Séances de groupe (types + planning hebdomadaire)
+//   6. Programmes & exercices (avec paramètres de génération)
+//   7. Suivi hebdomadaire
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// 1. AUTHENTIFICATION & PERMISSIONS
+// ===========================================================================
+
+enum Role {
+  ADMIN
+  COACH
+  CLIENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENT)
+  firstName    String
+  lastName     String
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client            Client?        @relation("ClientUser")
+  tasksAssigned     Task[]         @relation("TaskAssignee")
+  tasksCreated      Task[]         @relation("TaskCreator")
+  contactEvents     ContactEvent[] @relation("EventAuthor")
+  programsCreated   Program[]      @relation("ProgramAuthor")
+  prospectsAssigned Prospect[]     @relation("ProspectOwner")
+  groupsCoached     Group[]        @relation("GroupCoach")
+  advicesWritten    WeeklyAdvice[] @relation("AdviceAuthor")
+  notesWritten      ClientNote[]   @relation("NoteAuthor")
+  reportsWritten    SessionReport[] @relation("ReportAuthor")
+}
+
+// Permissions extensibles : chaque rôle se voit attribuer des codes de
+// permission (ex. "crm.manage", "programs.generate"). Ajouter un rôle ou
+// affiner les droits d'un coach = ajouter des lignes, pas de refonte.
+model Permission {
+  id    String           @id @default(cuid())
+  code  String           @unique
+  label String
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  role         Role
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  @@unique([role, permissionId])
+}
+
+// ===========================================================================
+// 2. CRM — PROSPECTS, PIPELINE, HISTORIQUE
+// ===========================================================================
+
+// Statuts de pipeline stockés en base (et non en enum) pour pouvoir en
+// ajouter / renommer / réordonner depuis l'interface admin sans migration.
+model PipelineStatus {
+  id       String  @id @default(cuid())
+  key      String  @unique // identifiant technique stable, ex. "en_reflexion"
+  label    String // libellé affiché, ex. "En réflexion"
+  color    String  @default("#6b7280")
+  position Int     @default(0) // ordre des colonnes du kanban
+  isWon    Boolean @default(false) // statut de conversion (Payé / Inscrit)
+  isLost   Boolean @default(false) // statut terminal négatif (Perdu, Non viable)
+
+  prospects Prospect[]
+}
+
+enum ProspectSource {
+  FORM // formulaire public de prise de rendez-vous
+  MANUAL // ajouté à la main par l'admin
+  SOCIAL_MEDIA // réseaux sociaux
+  WORD_OF_MOUTH // bouche à oreille
+  FLYER // flyers
+}
+
+// Priorité partagée (prospects à rappeler, tâches…)
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Prospect {
+  id             String         @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String
+  phone          String
+  source         ProspectSource @default(FORM)
+  firstContactAt DateTime       @default(now())
+  lastContactAt  DateTime       @default(now())
+  generalNote    String? // note générale sur le prospect
+  archived       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  status       PipelineStatus @relation(fields: [statusId], references: [id])
+  statusId     String
+  assignedTo   User?          @relation("ProspectOwner", fields: [assignedToId], references: [id])
+  assignedToId String?
+
+  // Objectif du prospect (liste déroulante alimentée par la table Goal)
+  goal   Goal?   @relation(fields: [goalId], references: [id])
+  goalId String?
+
+  // Prochaine action à planifier — alimente le calendrier et les
+  // « obligations journalières » du CRM.
+  nextActionLabel String?
+  nextActionAt    DateTime?
+  priority        Priority @default(NORMAL)
+
+  contactEvents ContactEvent[] // historique horodaté complet
+  appointments  Appointment[]
+  client        Client? // renseigné après conversion → l'historique est conservé
+
+  @@index([statusId])
+  @@index([email])
+}
+
+enum ContactEventType {
+  CALL
+  EMAIL
+  MESSAGE
+  MEETING
+  NOTE
+  DECISION
+  STATUS_CHANGE
+  SYSTEM // événements automatiques (création via formulaire, conversion…)
+}
+
+model ContactEvent {
+  id         String           @id @default(cuid())
+  prospect   Prospect         @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId String
+  type       ContactEventType @default(NOTE)
+  content    String
+  occurredAt DateTime         @default(now())
+  createdBy  User?            @relation("EventAuthor", fields: [createdById], references: [id])
+  createdById String?
+
+  @@index([prospectId, occurredAt])
+}
+
+// ===========================================================================
+// 3. AGENDA — TÂCHES & APPELS / RENDEZ-VOUS
+// ===========================================================================
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  category    String? // ex. "Générale", "CRM", "Séances"…
+  priority    Priority   @default(NORMAL)
+  progress    Int? // null = tâche normale ; 0-100 = tâche progressive
+  dueAt       DateTime?
+  status      TaskStatus @default(TODO)
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+
+  assignee    User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId  String?
+  createdBy   User?   @relation("TaskCreator", fields: [createdById], references: [id])
+  createdById String?
+
+  @@index([assigneeId, dueAt])
+}
+
+enum AppointmentStatus {
+  REQUESTED // demande issue du formulaire public, pas encore planifiée
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  title       String            @default("Appel découverte")
+  scheduledAt DateTime? // null tant que l'admin n'a pas fixé la date
+  durationMin Int               @default(30)
+  status      AppointmentStatus @default(REQUESTED)
+  notes       String?
+  createdAt   DateTime          @default(now())
+
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  prospectId String?
+
+  @@index([scheduledAt])
+}
+
+// ===========================================================================
+// 4. CLIENTS INSCRITS & OBJECTIFS
+// ===========================================================================
+
+model Client {
+  id       String   @id @default(cuid())
+  joinedAt DateTime @default(now())
+  notes    String?
+  isActive Boolean  @default(true)
+
+  // --- Profil (fiche coach) ---------------------------------------------
+  gender          String? // "Homme" / "Femme"
+  age             Int?
+  heightCm        Int?
+  lifestyle       String? // style de vie
+  activityLevel   String? // niveau d'activité (sédentaire, actif…)
+  sportLevel      String? // niveau sportif (débutant, intermédiaire…)
+  bodyType        String? // type de corps (ectomorphe…)
+  dietPreferences String? // préférences alimentaires
+
+  // --- Niveau de progression (1 à 5) --------------------------------------
+  // Varie automatiquement chaque semaine selon les rapports de séance, à
+  // objectif CONSTANT : toutes les séances « bonnes » → +1, « mauvaises » → -1,
+  // sinon inchangé. Aligné sur le niveau des exercices (Exercise.level 1-5).
+  level Int @default(1)
+
+  // Étape d'onboarding : le client renseigne lui-même ses premières
+  // mensurations depuis son espace. Tant que ce n'est pas fait, la fiche coach
+  // signale l'étape « mensurations à remplir » comme ouverte.
+  onboardingMeasurementsDone Boolean @default(false)
+
+  // --- Objectif chiffré ---------------------------------------------------
+  objectiveDeadline DateTime? // échéance
+  startWeightKg     Float? // poids de départ
+  targetWeightKg    Float? // poids cible
+  weeklyRateKg      Float? // objectif hebdomadaire (ex. -1 kg / semaine)
+
+  // --- Valeurs forcées manuellement (priment sur le calcul automatique) ---
+  // Laisser vide = valeur calculée (IMC / métabolisme) ou dernier poids saisi.
+  manualWeightKg Float? // force le « poids actuel » affiché
+  manualBmi      Float? // force l'IMC
+  manualBmr      Int? // force le métabolisme de base (kcal)
+  manualTdee     Int? // force le métabolisme actif (kcal)
+
+  // --- Bilan initial (questionnaire d'entrée) -----------------------------
+  injuries       String? // blessures / zones sensibles (⚠️ remonté sur le programme)
+  medicalNotes   String? // antécédents médicaux / réponses PAR-Q
+  availability   String? // disponibilités (jours, horaires)
+  equipment      String? // matériel / accès (salle, maison…)
+  experienceNote String? // expérience sportive, en texte libre
+
+  // --- Cible nutrition (macros) : vides = calculées automatiquement -------
+  calorieTarget  Int? // kcal/jour (force la cible calculée)
+  proteinTargetG Int? // protéines g/jour
+  carbTargetG    Int? // glucides g/jour
+  fatTargetG     Int? // lipides g/jour
+
+  // Compte utilisateur (espace client)
+  user   User   @relation("ClientUser", fields: [userId], references: [id])
+  userId String @unique
+
+  // Lien vers le prospect d'origine : conserve tout l'historique CRM
+  prospect   Prospect? @relation(fields: [prospectId], references: [id])
+  prospectId String?   @unique
+
+  // Groupe d'entraînement (assignation automatique à l'inscription)
+  group   Group?  @relation(fields: [groupId], references: [id])
+  groupId String?
+
+  goals        ClientGoal[]
+  programs     Program[]
+  metrics      WeeklyMetric[]
+  strengthLogs StrengthLog[]
+  cardioLogs   CardioLog[]
+  attendances  Attendance[]
+  feedbacks    FeedbackMessage[]
+  advices      WeeklyAdvice[]
+  measurements BodyMeasurement[]
+  photos       ProgressPhoto[]
+  coachNotes   ClientNote[]
+  sessionReports SessionReport[]
+  levelChanges   WeeklyLevelChange[]
+}
+
+// Objectifs (perte de poids, prise de muscle, remise en forme…). Utilisés
+// pour filtrer les séances visibles par le client et pour paramétrer la
+// génération de programmes.
+model Goal {
+  id          String @id @default(cuid())
+  key         String @unique
+  label       String
+  description String?
+
+  clients      ClientGoal[]
+  sessionTypes SessionTypeGoal[]
+  prospects    Prospect[]
+  groups       Group[]
+  // Programmes rattachés à cet objectif (« objectif = groupe = programme ») :
+  // tous les clients ayant cet objectif reçoivent le programme de l'objectif.
+  programs     Program[]
+}
+
+model ClientGoal {
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+  goal     Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId   String
+
+  @@id([clientId, goalId])
+}
+
+// ===========================================================================
+// 5. SÉANCES DE GROUPE — TYPES & PLANNING HEBDOMADAIRE
+// ===========================================================================
+
+// Thématique de séance (renforcement musculaire, cardio, force…)
+model SessionType {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  color       String  @default("#e05d38")
+  description String?
+  isActive    Boolean @default(true)
+
+  goalLinks SessionTypeGoal[]
+  slots     WeeklySlot[]
+  exercises SessionTypeExercise[]
+  sessionReports SessionReport[]
+}
+
+// Association type de séance ↔ objectifs : un client ne voit dans son agenda
+// que les séances dont le type correspond à au moins un de ses objectifs.
+model SessionTypeGoal {
+  sessionType   SessionType @relation(fields: [sessionTypeId], references: [id], onDelete: Cascade)
+  sessionTypeId String
+  goal          Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId        String
+
+  @@id([sessionTypeId, goalId])
+}
+
+// Contenu type d'une thématique de séance : les exercices que le coach a
+// choisis dans la bibliothèque, avec leurs paramètres par défaut. Même
+// philosophie que ProgramExercise (programme personnel), mais rattaché à la
+// THÉMATIQUE de groupe : tous les créneaux hebdomadaires de cette thématique
+// partagent le même contenu, visible au clic sur la séance (coach et client).
+model SessionTypeExercise {
+  id       String @id @default(cuid())
+  position Int    @default(0) // ordre d'exécution dans la séance
+  sets     Int    @default(3) // nombre de séries
+  reps     String @default("10") // répétitions : "8-12", "30 s"…
+  restSec  Int? // repos entre séries, en secondes
+
+  sessionType   SessionType @relation(fields: [sessionTypeId], references: [id], onDelete: Cascade)
+  sessionTypeId String
+  exercise      Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exerciseId    String
+
+  @@index([sessionTypeId])
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// Mapping configurable « jour → type de séance » (ex. mardi = renforcement).
+// Plusieurs créneaux possibles par jour.
+model WeeklySlot {
+  id        String  @id @default(cuid())
+  weekday   Weekday
+  startTime String // "18:30"
+  endTime   String // "19:30"
+  location  String?
+  capacity  Int?
+  isActive  Boolean @default(true)
+
+  sessionType   SessionType @relation(fields: [sessionTypeId], references: [id], onDelete: Cascade)
+  sessionTypeId String
+
+  @@index([weekday])
+}
+
+// ===========================================================================
+// 6. PROGRAMMES & EXERCICES
+// ===========================================================================
+
+model Exercise {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  muscleGroup String? // ex. "Jambes", "Dos", "Full body"
+  equipment   String? // ex. "Haltères", "Poids du corps"
+  level       Int     @default(1) // 1 = débutant … 5 = avancé
+  videoUrl    String?
+  description String?
+
+  // --- Base d'exercices importée (dataset GitHub, 1 324 exercices animés) ---
+  externalId String? @unique // id du dataset (ex. "0001")
+  bodyPart   String? // partie du corps (ex. "chest", "upper legs")
+  target     String? // muscle principal ciblé (ex. "biceps")
+  imageUrl   String? // vignette .jpg
+  gifUrl     String? // animation .gif du mouvement
+
+  programItems ProgramExercise[]
+  strengthLogs StrengthLog[]
+  // Thématiques de séances de groupe qui incluent cet exercice.
+  sessionTypeItems SessionTypeExercise[]
+}
+
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Program {
+  id        String        @id @default(cuid())
+  title     String
+  status    ProgramStatus @default(DRAFT)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // --- Point d'extension : moteur de génération -------------------------
+  // `generatorKey` identifie la stratégie utilisée (voir
+  // src/modules/programs/generation/) et `generationParams` stocke tous les
+  // paramètres d'entrée en JSON. De nouveaux paramètres = aucune migration.
+  generatorKey     String?
+  generationParams Json?
+  // Modèle réutilisable : un programme "template" (clientId/goalId nuls) que le
+  // coach applique ensuite à un client ou un objectif.
+  isTemplate       Boolean @default(false)
+
+  // Un programme est soit personnel (clientId), soit rattaché à un objectif
+  // de groupe (goalId). L'un des deux au moins est renseigné.
+  client      Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId    String?
+  goal        Goal?   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId      String?
+  createdBy   User?   @relation("ProgramAuthor", fields: [createdById], references: [id])
+  createdById String?
+
+  sessions ProgramSession[]
+}
+
+// Une "session" de programme = une journée d'entraînement du programme.
+model ProgramSession {
+  id       String  @id @default(cuid())
+  name     String // ex. "Jour 1 — Bas du corps"
+  position Int     @default(0)
+  weekday  Weekday?
+
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programId String
+
+  exercises ProgramExercise[]
+}
+
+model ProgramExercise {
+  id       String  @id @default(cuid())
+  position Int     @default(0)
+  sets     Int     @default(3)
+  reps     String  @default("10") // texte pour permettre "8-12", "30 s"…
+  restSec  Int?
+  tempo    String?
+  notes    String?
+
+  session    ProgramSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  exercise   Exercise       @relation(fields: [exerciseId], references: [id])
+  exerciseId String
+}
+
+// ===========================================================================
+// 7. SUIVI HEBDOMADAIRE
+// ===========================================================================
+
+// Une mesure par client et par semaine. Le champ `custom` (JSON) permet
+// d'ajouter de futurs indicateurs sans migration.
+model WeeklyMetric {
+  id               String   @id @default(cuid())
+  weekStart        DateTime // lundi de la semaine concernée
+  weightKg         Float?
+  energyLevel      Int? // ressenti 1-10
+  sessionsAttended Int?
+  sessionsPlanned  Int?
+  notes            String?
+  coachComment     String? // bilan du coach sur la semaine (visible par le client)
+  custom           Json?
+  createdAt        DateTime @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@unique([clientId, weekStart])
+}
+
+// ===========================================================================
+// 8. GROUPES D'ENTRAÎNEMENT
+// ===========================================================================
+
+// Groupe de coaching : les inscrits y sont placés automatiquement selon leur
+// objectif, dans la limite de la capacité (7 par défaut, paramétrable).
+// Chaque groupe peut se voir attribuer un coach par l'admin.
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  capacity  Int      @default(7)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  goal   Goal?   @relation(fields: [goalId], references: [id])
+  goalId String?
+
+  coach   User?   @relation("GroupCoach", fields: [coachId], references: [id])
+  coachId String?
+
+  clients Client[]
+  advices WeeklyAdvice[]
+}
+
+// ===========================================================================
+// 9. PERFORMANCE — FORCE, CARDIO, PRÉSENCE
+// ===========================================================================
+
+// Charge soulevée sur un exercice à une date donnée. `isPR` est calculé
+// automatiquement à l'enregistrement (record personnel sur cet exercice).
+model StrengthLog {
+  id        String   @id @default(cuid())
+  date      DateTime
+  weightKg  Float
+  reps      Int
+  rpe       Int? // effort ressenti 1-10 (RPE), saisi par le coach en séance
+  isPR      Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exerciseId String
+
+  // Lien optionnel : ce log a été saisi comme PR depuis un rapport de séance
+  // « bonne ». La relation reste facultative (un log peut exister seul).
+  sessionReport SessionReport? @relation("ReportPR")
+
+  @@index([clientId, exerciseId, date])
+}
+
+// Séance cardio : distance, allure, fréquence cardiaque.
+model CardioLog {
+  id           String   @id @default(cuid())
+  date         DateTime
+  distanceKm   Float?
+  paceMinPerKm Float? // allure en minutes / km
+  avgHeartRate Int? // fréquence cardiaque moyenne
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@index([clientId, date])
+}
+
+// Présence / absence à une séance (alimente le taux de présence).
+model Attendance {
+  id      String   @id @default(cuid())
+  date    DateTime
+  present Boolean  @default(true)
+  label   String? // ex. "Séance cardio"
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@index([clientId, date])
+}
+
+// ===========================================================================
+// 10. SUIVI CORPOREL & NOTES COACH
+// ===========================================================================
+
+// Mensurations prises par le coach (bilan initial puis suivis réguliers).
+// Tous les champs sont optionnels : le coach ne mesure que ce qui est utile.
+model BodyMeasurement {
+  id         String   @id @default(cuid())
+  date       DateTime @default(now())
+  weightKg   Float? // poids du jour (peut différer du suivi hebdo)
+  bodyFatPct Float? // % de masse grasse (pince ou balance impédancemètre)
+  neckCm     Float? // tour de cou
+  shouldersCm Float? // tour d'épaules
+  chestCm    Float? // tour de poitrine
+  waistCm    Float? // tour de taille
+  hipsCm     Float? // tour de hanches
+  armCm      Float? // tour de bras (contracté)
+  thighCm    Float? // tour de cuisse
+  calfCm     Float? // tour de mollet
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@index([clientId, date])
+}
+
+// Angle de prise de vue des photos de progression, pour construire les
+// comparatifs avant/après à angle identique.
+enum PhotoPose {
+  FRONT // face
+  SIDE // profil
+  BACK // dos
+}
+
+// Photo de progression prise par le coach. Le fichier est stocké sur le
+// serveur (dossier uploads) ; on ne garde ici que son chemin.
+model ProgressPhoto {
+  id        String    @id @default(cuid())
+  date      DateTime  @default(now())
+  pose      PhotoPose @default(FRONT)
+  url       String // chemin du fichier image
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@index([clientId, date])
+}
+
+// Carnet de notes privé du coach sur un client : daté, jamais visible côté
+// client (contrairement à WeeklyAdvice / coachComment qui sont partagés).
+model ClientNote {
+  id        String   @id @default(cuid())
+  content   String
+  isPinned  Boolean  @default(false) // note épinglée en haut du carnet
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  // Auteur de la note (coach ou admin)
+  author   User?   @relation("NoteAuthor", fields: [authorId], references: [id])
+  authorId String?
+
+  @@index([clientId, createdAt])
+}
+
+// ===========================================================================
+// 11. FEEDBACK & CONSEILS
+// ===========================================================================
+
+// Feedback hebdomadaire du client vers son coach, avec réponse éventuelle.
+model FeedbackMessage {
+  id         String    @id @default(cuid())
+  weekStart  DateTime? // semaine concernée
+  content    String
+  coachReply String?
+  repliedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@index([clientId, createdAt])
+}
+
+// Conseil de la semaine, rédigé par le coach/admin, pour un groupe entier
+// ou un client précis.
+model WeeklyAdvice {
+  id        String   @id @default(cuid())
+  weekStart DateTime
+  content   String
+  createdAt DateTime @default(now())
+
+  group    Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId  String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String?
+
+  author   User?   @relation("AdviceAuthor", fields: [authorId], references: [id])
+  authorId String?
+
+  @@index([weekStart])
+}
+
+// ===========================================================================
+// 12. RAPPORTS DE SÉANCE & PROGRESSION DE NIVEAU
+// ===========================================================================
+
+// Ressenti du coach sur la séance d'un apprenti. Remplace le « rapport de la
+// semaine » : le coach note chaque séance BON / NEUTRE / MAUVAIS. L'ensemble
+// des rapports d'une semaine pilote la progression de niveau (WeeklyLevelChange).
+enum SessionRating {
+  BON
+  NEUTRE
+  MAUVAIS
+}
+
+model SessionReport {
+  id        String        @id @default(cuid())
+  date      DateTime      @default(now()) // date de la séance
+  weekStart DateTime // lundi de la semaine — clé de la progression hebdomadaire
+  rating    SessionRating
+  note      String? // commentaire libre du coach sur la séance
+  createdAt DateTime      @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  // Séance concernée (thématique de groupe), facultative.
+  sessionType   SessionType? @relation(fields: [sessionTypeId], references: [id], onDelete: SetNull)
+  sessionTypeId String?
+
+  // Auteur du rapport (coach / admin).
+  author   User?   @relation("ReportAuthor", fields: [authorId], references: [id])
+  authorId String?
+
+  // PR optionnel : quand la séance est « bonne », le coach peut enregistrer un
+  // record (charge, reps…) qui alimente le graphe de force du client. On
+  // réutilise StrengthLog (détection isPR automatique) plutôt que de dupliquer.
+  strengthLog   StrengthLog? @relation("ReportPR", fields: [strengthLogId], references: [id], onDelete: SetNull)
+  strengthLogId String?      @unique
+
+  @@index([clientId, date])
+  @@index([clientId, weekStart])
+}
+
+// Trace idempotente de la variation de niveau appliquée pour une semaine
+// donnée. Une seule ligne par (client, semaine) : recalculer la semaine ajuste
+// le niveau de (nouveau delta − ancien delta), ce qui évite toute double
+// application quand un rapport est ajouté ou modifié après coup.
+model WeeklyLevelChange {
+  id        String   @id @default(cuid())
+  weekStart DateTime // lundi de la semaine évaluée
+  delta     Int // -1, 0 ou +1 réellement appliqué au niveau du client
+  reason    String? // ex. « toutes les séances bonnes »
+  createdAt DateTime @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  @@unique([clientId, weekStart])
+}

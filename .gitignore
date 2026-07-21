@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.env
+*.log
+.DS_Store
+# Fichiers uploadés (photos de progression) : données personnelles, jamais versionnées
+uploads/
