@@ -14,6 +14,7 @@ import { WEEKDAYS, WEEKDAY_LABELS, startOfWeek, addDays } from "@/lib/dates";
 import ExerciseThumb from "@/components/ExerciseThumb";
 import SessionSlotCard from "@/components/SessionSlotCard";
 import ProgramSessionCard from "@/components/espace/ProgramSessionCard";
+import QuickMessage from "@/components/espace/QuickMessage";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,9 @@ export default async function EspaceSeancesPage() {
           </div>
         </div>
       </div>
+
+      {/* Envoi rapide d'un message au coach (historique complet sous « Mon coach »). */}
+      <QuickMessage />
 
       {/* Conseil du coach de la semaine */}
       {advice && (

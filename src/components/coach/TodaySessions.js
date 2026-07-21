@@ -44,7 +44,7 @@ export default function TodaySessions({ dayView }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-2">
+        <div style={{ display: "grid", gap: 14 }}>
           {slots.map((slot) => {
             const type = slot.sessionType;
             const attend = attendingGroups(slot, groups);

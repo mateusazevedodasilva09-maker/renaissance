@@ -15,7 +15,7 @@
  */
 import { useRef, useState } from "react";
 
-export default function LineChart({ points = [], color = "var(--accent)", unit = "", height = 190, target = null, targetLabel = "Objectif" }) {
+export default function LineChart({ points = [], color = "var(--accent)", unit = "", height = 190, target = null, targetLabel = "Objectif", scale = 1 }) {
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null);
 
@@ -100,7 +100,10 @@ export default function LineChart({ points = [], color = "var(--accent)", unit =
     <svg
       ref={svgRef}
       viewBox={`0 0 ${w} ${h}`}
-      style={{ width: "100%", height: "auto" }}
+      // `scale` réduit uniformément tout le graphe (courbe, axes, libellés) en
+      // ne jouant que sur la largeur rendue : le viewBox conserve les
+      // proportions, donc textes et points rétrécissent d'autant (ex. 0.8 = -20 %).
+      style={{ width: `${scale * 100}%`, height: "auto", display: "block" }}
       role="img"
       onMouseMove={onMove}
       onMouseLeave={() => setHover(null)}

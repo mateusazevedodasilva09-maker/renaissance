@@ -261,7 +261,7 @@ export default function TrackingView({ initialMetrics, strengthLogs = [], cardio
         {current.points.length === 0 ? (
           <p className="muted">Aucune donnée pour ce schéma sur la période sélectionnée.</p>
         ) : (
-          <LineChart points={current.points} color={current.color} unit={current.unit} />
+          <LineChart points={current.points} color={current.color} unit={current.unit} scale={0.8} />
         )}
       </div>
 

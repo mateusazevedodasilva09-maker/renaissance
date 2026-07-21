@@ -60,12 +60,13 @@ export async function getCoachDashboard(coachUserId) {
  *   - onboarding incomplet (mensurations initiales non renseignées) ;
  *   - niveau en baisse la semaine passée (WeeklyLevelChange delta < 0).
  */
-export async function getClientsNeedingAttention(coachUserId) {
+export async function getClientsNeedingAttention(coachUserId = null) {
   const week = startOfWeek();
   const lastWeek = startOfWeek(addDays(week, -7));
 
   const clients = await prisma.client.findMany({
-    where: { isActive: true, group: { coachId: coachUserId } },
+    // coachUserId fourni → clients de ce coach ; sinon (admin) → tous les actifs.
+    where: { isActive: true, ...(coachUserId ? { group: { coachId: coachUserId } } : {}) },
     select: {
       id: true,
       level: true,
