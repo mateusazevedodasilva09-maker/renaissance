@@ -85,34 +85,94 @@ export async function updateSessionType(id, { name, color, description, isActive
 
 // --- Créneaux hebdomadaires --------------------------------------------------
 
+// `include` commun aux lectures de créneau : la thématique complète (objectifs
+// + contenu type) ET le groupe explicitement rattaché (avec son coach et son
+// objectif). Les agendas client/coach et le planning admin affichent ainsi le
+// détail et le groupe sans requête supplémentaire.
+const slotInclude = {
+  sessionType: { include: typeInclude },
+  group: {
+    include: {
+      coach: { select: { id: true, firstName: true, lastName: true } },
+      goal: true,
+    },
+  },
+};
+
+/**
+ * Garde-fou : un coach ne peut pas avoir deux séances qui se chevauchent le
+ * même jour. Quand un créneau est placé sur un groupe, on vérifie que le coach
+ * de ce groupe n'a pas déjà, ce jour-là, un autre créneau (sur l'un de ses
+ * groupes) dont l'horaire chevauche le nouveau.
+ * Comparaison lexicale sur "HH:MM" (zéro-paddé) : chevauchement ⇔
+ * aStart < bEnd && bStart < aEnd.
+ */
+async function assertCoachFree({ groupId, weekday, startTime, endTime, ignoreSlotId }) {
+  if (!groupId) return; // pas de placement explicite → pas de contrainte coach
+  const group = await prisma.group.findUnique({ where: { id: groupId }, select: { coachId: true } });
+  const coachId = group?.coachId;
+  if (!coachId) return; // groupe sans coach attitré → rien à vérifier
+
+  const sameDay = await prisma.weeklySlot.findMany({
+    where: {
+      weekday,
+      isActive: true,
+      group: { coachId }, // créneaux placés sur un groupe encadré par ce coach
+      ...(ignoreSlotId && { id: { not: ignoreSlotId } }),
+    },
+    select: { startTime: true, endTime: true, group: { select: { name: true } } },
+  });
+
+  const clash = sameDay.find((s) => startTime < s.endTime && s.startTime < endTime);
+  if (clash) {
+    throw new ApiError(
+      `Ce coach a déjà une séance ce jour-là de ${clash.startTime} à ${clash.endTime}` +
+        ` (groupe « ${clash.group?.name ?? "?"} »). Choisissez un autre créneau.`
+    );
+  }
+}
+
 export function listSlots() {
-  // Chaque créneau embarque sa thématique complète (objectifs + contenu type
-  // de la séance) : les agendas client et coach peuvent ainsi afficher le
-  // détail des exercices au clic sans requête supplémentaire.
   return prisma.weeklySlot.findMany({
-    include: { sessionType: { include: typeInclude } },
+    include: slotInclude,
     orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
   });
 }
 
-export function createSlot({ weekday, startTime, endTime, sessionTypeId, location, capacity }) {
+export async function createSlot({ weekday, startTime, endTime, sessionTypeId, location, capacity, groupId }) {
   if (!WEEKDAYS.includes(weekday)) throw new ApiError("Jour invalide.");
   if (!/^\d{2}:\d{2}$/.test(startTime || "") || !/^\d{2}:\d{2}$/.test(endTime || "")) {
     throw new ApiError("Horaires invalides (format HH:MM).");
   }
+  if (startTime >= endTime) throw new ApiError("L'heure de fin doit être après l'heure de début.");
   if (!sessionTypeId) throw new ApiError("Type de séance requis.");
-  // Même `include` que listSlots() : le créneau renvoyé est directement
-  // affichable (carte cliquable avec contenu type) sans recharger la page.
+  await assertCoachFree({ groupId: groupId || null, weekday, startTime, endTime });
   return prisma.weeklySlot.create({
-    data: { weekday, startTime, endTime, sessionTypeId, location, capacity: capacity || null },
-    include: { sessionType: { include: typeInclude } },
+    data: { weekday, startTime, endTime, sessionTypeId, location, capacity: capacity || null, groupId: groupId || null },
+    include: slotInclude,
   });
 }
 
-export function updateSlot(id, data) {
-  const allowed = ["weekday", "startTime", "endTime", "sessionTypeId", "location", "capacity", "isActive"];
+export async function updateSlot(id, data) {
+  const allowed = ["weekday", "startTime", "endTime", "sessionTypeId", "location", "capacity", "isActive", "groupId"];
   const patch = Object.fromEntries(Object.entries(data).filter(([k]) => allowed.includes(k)));
-  return prisma.weeklySlot.update({ where: { id }, data: patch, include: { sessionType: { include: typeInclude } } });
+  if ("groupId" in patch) patch.groupId = patch.groupId || null;
+  // Revalider le chevauchement horaire du coach si le placement ou l'horaire change.
+  if (["groupId", "weekday", "startTime", "endTime"].some((k) => k in patch)) {
+    const current = await prisma.weeklySlot.findUnique({
+      where: { id },
+      select: { weekday: true, startTime: true, endTime: true, groupId: true },
+    });
+    const next = { ...current, ...patch };
+    await assertCoachFree({
+      groupId: next.groupId,
+      weekday: next.weekday,
+      startTime: next.startTime,
+      endTime: next.endTime,
+      ignoreSlotId: id,
+    });
+  }
+  return prisma.weeklySlot.update({ where: { id }, data: patch, include: slotInclude });
 }
 
 export function deleteSlot(id) {
@@ -120,16 +180,22 @@ export function deleteSlot(id) {
 }
 
 /**
- * Planning hebdomadaire d'un client : uniquement les créneaux actifs dont le
- * type de séance correspond à au moins un de ses objectifs.
- * (Un type sans objectif associé est considéré ouvert à tous.)
+ * Planning hebdomadaire d'un client : créneaux actifs visibles pour lui.
+ *  - créneau placé explicitement sur un groupe → réservé aux membres de CE groupe ;
+ *  - créneau non placé (groupId nul) → repli historique par objectif
+ *    (visible si le type de séance correspond à un objectif du client ;
+ *    un type sans objectif est ouvert à tous).
  */
 export async function getClientWeeklySchedule(clientId) {
-  const clientGoals = await prisma.clientGoal.findMany({ where: { clientId } });
+  const [client, clientGoals, slots] = await Promise.all([
+    prisma.client.findUnique({ where: { id: clientId }, select: { groupId: true } }),
+    prisma.clientGoal.findMany({ where: { clientId } }),
+    listSlots(),
+  ]);
   const goalIds = new Set(clientGoals.map((g) => g.goalId));
-  const slots = await listSlots();
   return slots.filter((slot) => {
     if (!slot.isActive || !slot.sessionType.isActive) return false;
+    if (slot.groupId) return slot.groupId === client?.groupId; // placement explicite
     const links = slot.sessionType.goalLinks;
     if (links.length === 0) return true; // séance ouverte à tous
     return links.some((l) => goalIds.has(l.goalId));
@@ -137,23 +203,55 @@ export async function getClientWeeklySchedule(clientId) {
 }
 
 /**
- * Planning hebdomadaire d'un coach : les créneaux actifs dont le type de
- * séance correspond aux objectifs des groupes qu'il encadre.
- * (Un type sans objectif associé est considéré ouvert à tous.)
+ * Planning hebdomadaire d'un coach : créneaux actifs de ses groupes.
+ *  - créneau placé explicitement sur l'un de ses groupes → visible ;
+ *  - créneau non placé → repli historique par objectif de ses groupes.
  */
 export async function getCoachWeeklySchedule(coachUserId) {
   const groups = await prisma.group.findMany({
     where: { coachId: coachUserId, isActive: true },
-    select: { goalId: true },
+    select: { id: true, goalId: true },
   });
+  const groupIds = new Set(groups.map((g) => g.id));
   const goalIds = new Set(groups.map((g) => g.goalId).filter(Boolean));
   const slots = await listSlots();
   return slots.filter((slot) => {
     if (!slot.isActive || !slot.sessionType.isActive) return false;
+    if (slot.groupId) return groupIds.has(slot.groupId); // placement explicite
     const links = slot.sessionType.goalLinks;
     if (links.length === 0) return true; // séance ouverte à tous
     return links.some((l) => goalIds.has(l.goalId));
   });
+}
+
+/**
+ * Vue « séances du jour » d'un coach : les créneaux de la semaine restreints au
+ * jour de `date`, plus ses groupes avec leur effectif (roster nom + niveau).
+ * Le rattachement créneau ↔ groupe(s) est recalculé côté composant, comme dans
+ * le planning hebdo (créneau explicite = son groupe ; sinon par objectif).
+ */
+export async function getCoachDayView(coachUserId, date = new Date()) {
+  const weekday = WEEKDAYS[(new Date(date).getDay() + 6) % 7];
+  const [allSlots, groups] = await Promise.all([
+    getCoachWeeklySchedule(coachUserId),
+    prisma.group.findMany({
+      where: { coachId: coachUserId, isActive: true },
+      include: {
+        goal: true,
+        clients: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            level: true,
+            user: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: { joinedAt: "asc" },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  return { weekday, slots: allSlots.filter((s) => s.weekday === weekday), groups };
 }
 
 // --- Objectifs ---------------------------------------------------------------

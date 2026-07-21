@@ -405,7 +405,15 @@ model WeeklySlot {
   sessionType   SessionType @relation(fields: [sessionTypeId], references: [id], onDelete: Cascade)
   sessionTypeId String
 
+  // Placement explicite du créneau sur UN groupe précis (choisi par l'admin dans
+  // le planning). Quand il est renseigné, la séance n'est visible que par ce
+  // groupe (ses clients) et son coach. Laissé vide → repli historique par
+  // objectif (la séance s'affiche aux groupes dont l'objectif correspond).
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupId String?
+
   @@index([weekday])
+  @@index([groupId])
 }
 
 // ===========================================================================
@@ -544,6 +552,8 @@ model Group {
 
   clients Client[]
   advices WeeklyAdvice[]
+  // Créneaux hebdomadaires explicitement placés sur ce groupe par l'admin.
+  slots   WeeklySlot[]
 }
 
 // ===========================================================================

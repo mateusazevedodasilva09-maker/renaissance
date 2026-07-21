@@ -38,10 +38,15 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
   const [goals, setGoals] = useState(initialGoals);
   const [error, setError] = useState(null);
 
-  // Groupe(s) qui s'entraînent sur un créneau : ceux dont l'objectif figure
-  // parmi les objectifs de la séance (une séance sans objectif est ouverte à
-  // tous). Permet de savoir, au coup d'œil, quel groupe s'entraîne quand.
+  // Groupe(s) qui s'entraînent sur un créneau.
+  //  - placement explicite (groupId) → CE groupe uniquement ;
+  //  - sinon repli par objectif : les groupes dont l'objectif figure parmi ceux
+  //    de la séance (une séance sans objectif est ouverte à tous).
   function groupsForSlot(slot) {
+    if (slot.groupId) {
+      const g = groups.find((x) => x.id === slot.groupId) || slot.group;
+      return g ? [g] : [];
+    }
     const goalIds = new Set((slot.sessionType?.goalLinks || []).map((l) => l.goalId));
     if (goalIds.size === 0) return groups;
     return groups.filter((g) => g.goalId && goalIds.has(g.goalId));
@@ -60,7 +65,7 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
 
   // Formulaires
   const [typeForm, setTypeForm] = useState({ name: "", color: "#e05d38", description: "" });
-  const [slotForm, setSlotForm] = useState({ weekday: "MONDAY", startTime: "18:30", endTime: "19:30", sessionTypeId: "" });
+  const [slotForm, setSlotForm] = useState({ weekday: "MONDAY", startTime: "18:30", endTime: "19:30", sessionTypeId: "", groupId: "" });
   const [goalLabel, setGoalLabel] = useState("");
 
   async function addType(e) {
@@ -117,7 +122,8 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
           <h1>Séances & planning</h1>
           <div className="subtitle">
             Créez vos séances (renforcement, cardio, force…) avec leur note et leurs exercices,
-            puis placez-les dans le planning de la semaine.
+            puis placez chaque créneau dans la semaine — en choisissant le groupe qui s&apos;entraîne.
+            Le coach du groupe et ses clients le voient aussitôt.
           </div>
         </div>
       </div>
@@ -145,9 +151,12 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
                       footer={
                         <>
                           {/* Quel(s) groupe(s) s'entraîne(nt) sur ce créneau. */}
-                          <div className="muted small" style={{ marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
-                            <Icon name="users" />{" "}
-                            {slotGroups.length > 0 ? slotGroups.map((g) => g.name).join(", ") : "Aucun groupe"}
+                          <div className="muted small" style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                            <span><Icon name="users" />{" "}
+                            {slotGroups.length > 0 ? slotGroups.map((g) => g.name).join(", ") : "Aucun groupe"}</span>
+                            {s.groupId && (
+                              <span className="badge" style={{ padding: "1px 8px", fontSize: 10.5, borderColor: "var(--accent)", color: "var(--accent)" }}>placé</span>
+                            )}
                           </div>
                           <button
                             className="btn btn-sm btn-danger"
@@ -169,6 +178,12 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
         <form onSubmit={addSlot} className="flex wrap mt">
           <select className="input" style={{ width: "auto" }} value={slotForm.weekday} onChange={(e) => setSlotForm({ ...slotForm, weekday: e.target.value })}>
             {WEEKDAYS.map((d) => <option key={d} value={d}>{DAY_LABELS[d]}</option>)}
+          </select>
+          {/* Groupe qui s'entraîne sur ce créneau. Laisser « — » = repli par
+              objectif (comportement historique). */}
+          <select className="input" style={{ width: "auto" }} value={slotForm.groupId} onChange={(e) => setSlotForm({ ...slotForm, groupId: e.target.value })} title="Groupe qui s'entraîne sur ce créneau">
+            <option value="">— Auto (par objectif)</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
           <select className="input" style={{ width: "auto" }} required value={slotForm.sessionTypeId} onChange={(e) => setSlotForm({ ...slotForm, sessionTypeId: e.target.value })}>
             <option value="" disabled>Séance…</option>

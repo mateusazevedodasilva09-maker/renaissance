@@ -1,12 +1,15 @@
 /**
- * Interface dédiée COACH. Shell minimal, distinct de l'admin : le coach n'y
- * voit que ses coachings. L'admin dispose d'un retour vers l'espace admin.
+ * Interface dédiée COACH. Shell distinct de l'admin : le coach y pilote ses
+ * coachings (séances du jour, planning, groupes, messages, agenda). L'admin
+ * dispose d'un retour vers l'espace admin et peut observer un coach donné.
  */
+import { Suspense } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
+import CoachNav from "@/components/coach/CoachNav";
 
 export const metadata = { title: "Renaissance — Espace coach" };
 
@@ -23,9 +26,15 @@ export default async function CoachLayout({ children }) {
           </div>
         </div>
         <div className="section-label">Coaching</div>
-        <Link href="/coach" className="nav-link active"><span><Icon name="dumbbell" /></span> Mes coachings</Link>
+        {/* CoachNav lit l'URL (usePathname/useSearchParams) → Suspense requis. */}
+        <Suspense fallback={null}>
+          <CoachNav />
+        </Suspense>
         {session?.role === "ADMIN" && (
-          <Link href="/admin" className="nav-link"><span><Icon name="arrow-left" /></span> Retour admin</Link>
+          <>
+            <div className="section-label">Administration</div>
+            <Link href="/admin" className="nav-link"><span><Icon name="arrow-left" /></span> Retour admin</Link>
+          </>
         )}
         <div style={{ marginTop: "auto", padding: "14px 10px 4px", display: "grid", gap: 8 }}>
           <div className="muted small">{session?.name}</div>

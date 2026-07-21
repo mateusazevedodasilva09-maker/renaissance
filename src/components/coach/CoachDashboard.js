@@ -59,7 +59,7 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
             <select
               className="input"
               value={selectedCoachId || ""}
-              onChange={(e) => router.push(`/coach?coach=${e.target.value}`)}
+              onChange={(e) => router.push(`/coach/planning?coach=${e.target.value}`)}
             >
               {coaches.map((c) => (
                 <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>

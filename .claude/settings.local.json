@@ -11,7 +11,12 @@
       "Bash(git commit -q -m 'Backup: état avant redesign UI avec taste-skill *)",
       "Bash(timeout 180 npx next build)",
       "Bash(npx next *)",
-      "Bash(git commit -q -m 'Refonte UI premium via taste-skill \\(design system v4 Atelier\\) *)"
+      "Bash(git commit -q -m 'Refonte UI premium via taste-skill \\(design system v4 Atelier\\) *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/connexion)",
+      "Skill(claude-in-chrome)",
+      "Bash(node -e \"const {PrismaClient}=require\\('@prisma/client'\\);const p=new PrismaClient\\(\\);p.user.groupBy\\({by:['role'],_count:true}\\).then\\(r=>{console.log\\('DB OK. Utilisateurs par rôle:'\\);console.log\\(JSON.stringify\\(r,null,2\\)\\);process.exit\\(0\\)}\\).catch\\(e=>{console.error\\('DB ERREUR:',e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(node *)"
     ]
   }
 }
