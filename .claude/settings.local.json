@@ -8,7 +8,10 @@
       "Bash(npx -y skills add Leonxlnx/taste-skill -y)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -q -m 'Backup: état avant redesign UI avec taste-skill *)"
+      "Bash(git commit -q -m 'Backup: état avant redesign UI avec taste-skill *)",
+      "Bash(timeout 180 npx next build)",
+      "Bash(npx next *)",
+      "Bash(git commit -q -m 'Refonte UI premium via taste-skill \\(design system v4 Atelier\\) *)"
     ]
   }
 }
