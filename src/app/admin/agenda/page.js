@@ -8,7 +8,7 @@ import { listTasks } from "@/modules/agenda/task.service";
 import { listAppointments } from "@/modules/agenda/appointment.service";
 import { listNextActions } from "@/modules/crm/prospect.service";
 import { listStaff } from "@/modules/auth/user.service";
-import { getCoachWeeklySchedule } from "@/modules/sessions/schedule.service";
+import { getCoachWeeklySchedule, listSlots } from "@/modules/sessions/schedule.service";
 import { WEEKDAYS, WEEKDAY_LABELS } from "@/lib/dates";
 import AgendaBoard from "@/components/admin/AgendaBoard";
 import SessionSlotCard from "@/components/SessionSlotCard";
@@ -24,7 +24,8 @@ export default async function AgendaPage() {
     listAppointments(),
     isAdmin ? listNextActions() : [],
     listStaff(),
-    isAdmin ? [] : getCoachWeeklySchedule(session.userId),
+    // Admin : toutes les séances placées ; coach : uniquement les siennes.
+    isAdmin ? listSlots() : getCoachWeeklySchedule(session.userId),
   ]);
   return (
     <div>
@@ -35,6 +36,7 @@ export default async function AgendaPage() {
         staff={JSON.parse(JSON.stringify(staff))}
         sessionUserId={session?.userId}
         role={session?.role || "ADMIN"}
+        coachSlots={JSON.parse(JSON.stringify(coachSlots))}
       />
 
       {/* Planning hebdo des séances du coach */}

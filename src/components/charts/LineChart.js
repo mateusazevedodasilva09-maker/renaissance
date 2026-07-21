@@ -38,11 +38,25 @@ export default function LineChart({ points = [], color = "var(--accent)", unit =
   // l'objectif chiffré même s'il sort de la plage des points mesurés.
   const hasTarget = target !== null && target !== undefined && !Number.isNaN(Number(target));
   const scaleValues = hasTarget ? [...values, Number(target)] : values;
-  const min = Math.min(...scaleValues);
-  const max = Math.max(...scaleValues);
+  let lo = Math.min(...scaleValues);
+  let hi = Math.max(...scaleValues);
+  // Données plates (valeur unique ou variations nulles) : bande minimale pour
+  // ne pas coller la courbe à un bord.
+  if (hi === lo) { lo -= 1; hi += 1; }
+  // Respiration verticale (~12 % en haut et en bas) : les points ne touchent
+  // jamais le cadre, et les petites variations restent lisibles sans être
+  // exagérées — le rendu paraît proportionné quelle que soit l'amplitude.
+  const headroom = (hi - lo) * 0.12;
+  const min = lo - headroom;
+  const max = hi + headroom;
   const range = max - min || 1;
 
-  const x = (i) => padL + (i * (w - padL - padR)) / Math.max(data.length - 1, 1);
+  // Un seul point : on le centre horizontalement plutôt que de le coller à
+  // gauche. Sinon, répartition régulière sur toute la largeur utile.
+  const x = (i) =>
+    data.length === 1
+      ? (padL + (w - padR)) / 2
+      : padL + (i * (w - padL - padR)) / (data.length - 1);
   const y = (v) => h - padB - ((v - min) / range) * (h - padT - padB);
 
   const path = data.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");

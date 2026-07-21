@@ -32,10 +32,13 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
     return map;
   }, [slots]);
 
-  // Groupes concernés par le coaching sélectionné : ceux dont l'objectif figure
-  // parmi les objectifs de la séance (une séance sans objectif est ouverte à tous).
+  // Groupes concernés par le coaching sélectionné.
+  //  - placement explicite (groupId) → CE groupe uniquement ;
+  //  - sinon repli par objectif : les groupes dont l'objectif figure parmi ceux
+  //    de la séance (une séance sans objectif est ouverte à tous).
   const attendingGroups = useMemo(() => {
     if (!selectedSlot) return [];
+    if (selectedSlot.groupId) return groups.filter((g) => g.id === selectedSlot.groupId);
     const goalIds = new Set((selectedSlot.sessionType?.goalLinks || []).map((l) => l.goalId));
     const openToAll = goalIds.size === 0;
     return groups.filter((g) => openToAll || (g.goalId && goalIds.has(g.goalId)));
@@ -98,6 +101,7 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
                       >
                         <div style={{ fontWeight: 600 }}>{slot.sessionType?.name}</div>
                         <div className="muted small">{slot.startTime}–{slot.endTime}{slot.location ? ` · ${slot.location}` : ""}</div>
+                        {slot.group && <div className="muted small"><Icon name="users" /> {slot.group.name}</div>}
                       </button>
                     );
                   })}

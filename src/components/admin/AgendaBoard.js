@@ -16,6 +16,7 @@ const TASK_STATUS = { TODO: "À faire", IN_PROGRESS: "En cours", DONE: "Fait" };
 const TASK_COLORS = { TODO: "var(--amber)", IN_PROGRESS: "var(--blue)", DONE: "var(--green)" };
 
 const TYPES = {
+  coaching: { label: "Coachings", color: "var(--green)" },
   task: { label: "Tâches", color: "var(--blue)" },
   appointment: { label: "Appels", color: "var(--violet)" },
   prospect: { label: "Actions CRM", color: "var(--accent)" },
@@ -23,6 +24,8 @@ const TYPES = {
 
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+// Jour de la semaine (enum Prisma) à partir d'une date JS : (getDay()+6)%7 → 0 = lundi.
+const WEEKDAY_ENUM = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
 function fmt(dt) {
   return dt ? new Date(dt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
@@ -43,7 +46,7 @@ async function api(path, method, body) {
   return json.data;
 }
 
-export default function AgendaBoard({ initialTasks, initialAppointments, nextActions = [], staff = [], sessionUserId, role = "ADMIN" }) {
+export default function AgendaBoard({ initialTasks, initialAppointments, nextActions = [], staff = [], sessionUserId, role = "ADMIN", coachSlots = [] }) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [appointments, setAppointments] = useState(initialAppointments);
@@ -58,7 +61,7 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
     const now = new Date();
     return { y: now.getFullYear(), m: now.getMonth() };
   });
-  const [typeFilter, setTypeFilter] = useState({ task: true, appointment: true, prospect: true });
+  const [typeFilter, setTypeFilter] = useState({ coaching: true, task: true, appointment: true, prospect: true });
   const [assigneeFilter, setAssigneeFilter] = useState("");
 
   const requested = appointments.filter((a) => a.status === "REQUESTED");
@@ -111,16 +114,6 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
     return list;
   }, [tasks, scheduled, nextActions, typeFilter, assigneeFilter]);
 
-  const byDay = useMemo(() => {
-    const map = {};
-    events.forEach((e) => {
-      const k = dayKey(e.date);
-      (map[k] = map[k] || []).push(e);
-    });
-    Object.values(map).forEach((l) => l.sort((a, b) => new Date(a.date) - new Date(b.date)));
-    return map;
-  }, [events]);
-
   // Grille : semaines du mois affiché (lundi → dimanche).
   const weeks = useMemo(() => {
     const first = new Date(month.y, month.m, 1);
@@ -138,6 +131,44 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
     } while (cursor.getMonth() === month.m);
     return out;
   }, [month]);
+
+  // Occurrences de coaching : les créneaux hebdomadaires (récurrents par jour de
+  // la semaine) projetés sur chaque date visible de la grille — passé, présent
+  // et futur, au fil de la navigation entre les mois.
+  const coachingEvents = useMemo(() => {
+    if (!typeFilter.coaching || coachSlots.length === 0) return [];
+    const out = [];
+    weeks.forEach((week) =>
+      week.forEach((day) => {
+        const wd = WEEKDAY_ENUM[(day.getDay() + 6) % 7];
+        coachSlots
+          .filter((s) => s.weekday === wd && s.isActive !== false)
+          .forEach((s) => {
+            const [hh, mm] = (s.startTime || "00:00").split(":");
+            const date = new Date(day);
+            date.setHours(Number(hh) || 0, Number(mm) || 0, 0, 0);
+            out.push({
+              id: `c-${s.id}-${dayKey(day)}`,
+              date,
+              type: "coaching",
+              color: s.sessionType?.color,
+              label: `${s.startTime} · ${s.sessionType?.name || "Séance"}${s.group ? ` — ${s.group.name}` : ""}`,
+            });
+          });
+      })
+    );
+    return out;
+  }, [coachSlots, weeks, typeFilter.coaching]);
+
+  const byDay = useMemo(() => {
+    const map = {};
+    [...events, ...coachingEvents].forEach((e) => {
+      const k = dayKey(e.date);
+      (map[k] = map[k] || []).push(e);
+    });
+    Object.values(map).forEach((l) => l.sort((a, b) => new Date(a.date) - new Date(b.date)));
+    return map;
+  }, [events, coachingEvents]);
 
   const todayKey = dayKey(new Date());
 
@@ -187,7 +218,7 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
       <div className="page-header">
         <div>
           <h1>Agenda & tâches</h1>
-          <div className="subtitle">Calendrier des tâches, appels et actions CRM.</div>
+          <div className="subtitle">Calendrier des coachings, tâches, appels et actions CRM — passé, présent et futur.</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>+ Nouvelle tâche</button>
       </div>
@@ -233,7 +264,7 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
                   <div className="cal-num">{day.getDate()}</div>
                   {dayEvents.slice(0, 4).map((e) => {
                     const style = {
-                      borderLeft: `3px solid ${TYPES[e.type].color}`,
+                      borderLeft: `3px solid ${e.color || TYPES[e.type].color}`,
                       textDecoration: e.done ? "line-through" : "none",
                     };
                     return e.href ? (

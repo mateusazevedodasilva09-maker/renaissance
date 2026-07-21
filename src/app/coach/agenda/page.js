@@ -43,6 +43,7 @@ export default async function CoachAgendaPage({ searchParams }) {
         staff={JSON.parse(JSON.stringify(staff))}
         sessionUserId={session.userId}
         role={session.role}
+        coachSlots={JSON.parse(JSON.stringify(coachSlots))}
       />
 
       <div className="card mt">
