@@ -252,6 +252,12 @@ model Client {
   // signale l'étape « mensurations à remplir » comme ouverte.
   onboardingMeasurementsDone Boolean @default(false)
 
+  // Accès au dashboard : contrôlé par l'admin. À la conversion, le client a un
+  // compte mais `enrolled = false` → il ne voit que la page de remplissage des
+  // métriques. Une fois les métriques remplies puis l'admin l'ayant « inscrit »,
+  // `enrolled = true` → accès complet à son espace.
+  enrolled Boolean @default(false)
+
   // --- Objectif chiffré ---------------------------------------------------
   objectiveDeadline DateTime? // échéance
   startWeightKg     Float? // poids de départ

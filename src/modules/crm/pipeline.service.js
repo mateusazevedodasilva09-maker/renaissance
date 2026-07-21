@@ -54,6 +54,11 @@ export async function getWonStatus() {
   return status;
 }
 
+/** Statut par sa clé technique (ex. "remplissage_metriques"). Null si absent. */
+export function getStatusByKey(key) {
+  return prisma.pipelineStatus.findUnique({ where: { key } });
+}
+
 /** Statut par défaut d'un nouveau prospect (première colonne non terminale). */
 export async function getDefaultStatus() {
   const status = await prisma.pipelineStatus.findFirst({

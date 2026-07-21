@@ -26,8 +26,9 @@ const PIPELINE_STATUSES = [
   { key: "fiche_envoyee", label: "Fiche envoyée", color: "#eab308", position: 6 },
   { key: "en_reflexion", label: "En réflexion", color: "#f59e0b", position: 7 },
   { key: "en_negociation", label: "En négociation", color: "#f97316", position: 8 },
-  { key: "paye_inscrit", label: "Payé / Inscrit", color: "#22c55e", position: 9, isWon: true },
-  { key: "perdu", label: "Perdu", color: "#ef4444", position: 10, isLost: true },
+  { key: "remplissage_metriques", label: "Remplissage des métriques", color: "#14b8a6", position: 9 },
+  { key: "paye_inscrit", label: "Payé / Inscrit", color: "#22c55e", position: 10, isWon: true },
+  { key: "perdu", label: "Perdu", color: "#ef4444", position: 11, isLost: true },
 ];
 
 const PERMISSIONS = [

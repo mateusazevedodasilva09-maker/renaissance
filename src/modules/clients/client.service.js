@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { startOfWeek } from "@/lib/dates";
 import { createUser } from "@/modules/auth/auth.service";
-import { getWonStatus } from "@/modules/crm/pipeline.service";
+import { getWonStatus, getStatusByKey } from "@/modules/crm/pipeline.service";
 
 const include = {
   user: { select: { id: true, username: true, email: true, firstName: true, lastName: true, phone: true, isActive: true } },
@@ -98,7 +98,11 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
   const emailTaken = await prisma.user.findUnique({ where: { email: prospect.email } });
   if (emailTaken) throw new ApiError("Un compte utilise déjà cette adresse e-mail.");
 
-  const wonStatus = await getWonStatus();
+  // Nouvelle étape : le prospect converti passe d'abord en « Remplissage des
+  // métriques » (le client a un compte mais doit renseigner ses données avant
+  // que l'admin ne lui donne accès au dashboard). Repli sur « Inscrit » si le
+  // statut n'existe pas.
+  const fillStatus = (await getStatusByKey("remplissage_metriques")) || (await getWonStatus());
 
   // Objectifs : ceux cochés + celui du prospect (fiche CRM)
   const allGoalIds = [...new Set([...goalIds, ...(prospect.goalId ? [prospect.goalId] : [])])];
@@ -123,19 +127,20 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
         userId: user.id,
         prospectId: prospect.id,
         groupId: group?.id || null,
+        enrolled: false, // accès dashboard bloqué jusqu'à validation par l'admin
         goals: { create: allGoalIds.map((goalId) => ({ goalId })) },
       },
       include,
     }),
     prisma.prospect.update({
       where: { id: prospect.id },
-      data: { statusId: wonStatus.id, lastContactAt: new Date() },
+      data: { statusId: fillStatus.id, lastContactAt: new Date() },
     }),
     prisma.contactEvent.create({
       data: {
         prospectId: prospect.id,
         type: "SYSTEM",
-        content: `Converti en client inscrit (statut : ${wonStatus.label}). Espace client activé.`,
+        content: `Compte client créé (statut : ${fillStatus.label}). En attente du remplissage des métriques par le client.`,
         createdById: userId,
       },
     }),
@@ -150,6 +155,62 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
   }
 
   return { client, username: user.username };
+}
+
+/**
+ * Inscription définitive : l'admin donne au client l'accès à son dashboard.
+ * Passe `enrolled = true` et bascule le prospect lié en « Payé / Inscrit ».
+ * Idempotent (ne refait rien si déjà inscrit).
+ */
+export async function enrollClient(clientId, { userId = null } = {}) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: { user: { select: { firstName: true, lastName: true } }, prospect: { select: { id: true } } },
+  });
+  if (!client) throw new ApiError("Client introuvable.", 404);
+  if (client.enrolled) return getClient(clientId);
+
+  const won = await getWonStatus();
+  const ops = [
+    prisma.client.update({ where: { id: clientId }, data: { enrolled: true } }),
+  ];
+  if (client.prospect) {
+    ops.push(
+      prisma.prospect.update({ where: { id: client.prospect.id }, data: { statusId: won.id, lastContactAt: new Date() } }),
+      prisma.contactEvent.create({
+        data: {
+          prospectId: client.prospect.id,
+          type: "SYSTEM",
+          content: `Inscription validée — accès au dashboard accordé (statut : ${won.label}).`,
+          createdById: userId,
+        },
+      })
+    );
+  }
+  await prisma.$transaction(ops);
+  return getClient(clientId);
+}
+
+/**
+ * Clients « à valider » : métriques remplies mais pas encore inscrits (accès
+ * dashboard non accordé). Pour l'admin = tous ; pour un coach = les siens.
+ * Alimente la notification staff et l'agenda.
+ */
+export function listPendingValidation({ role, userId } = {}) {
+  return prisma.client.findMany({
+    where: {
+      onboardingMeasurementsDone: true,
+      enrolled: false,
+      ...(role === "COACH" ? { group: { coachId: userId } } : {}),
+    },
+    select: {
+      id: true,
+      joinedAt: true,
+      user: { select: { firstName: true, lastName: true } },
+      group: { select: { name: true } },
+    },
+    orderBy: { joinedAt: "desc" },
+  });
 }
 
 /** Mise à jour d'un client : notes, activation, objectifs, profil, groupe. */

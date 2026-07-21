@@ -9,6 +9,8 @@ import { getClientByUserId } from "@/modules/clients/client.service";
 import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
+import OnboardingGate from "@/components/espace/OnboardingGate";
+import WaitingGate from "@/components/espace/WaitingGate";
 
 export const metadata = { title: "Renaissance — Mon espace" };
 export const dynamic = "force-dynamic";
@@ -31,6 +33,13 @@ export default async function EspaceLayout({ children }) {
       </div>
     );
   }
+
+  // Gating d'onboarding : le client a un compte mais un accès progressif.
+  const firstName = session.name ? session.name.split(" ")[0] : "";
+  //  1) tant que ses métriques ne sont pas remplies → page de remplissage ;
+  if (!client.onboardingMeasurementsDone) return <OnboardingGate firstName={firstName} />;
+  //  2) métriques remplies mais pas encore inscrit par l'admin → écran d'attente.
+  if (!client.enrolled) return <WaitingGate firstName={firstName} />;
 
   return (
     <div className="app-shell">

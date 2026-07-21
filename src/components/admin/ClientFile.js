@@ -61,6 +61,16 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     setClient({ ...client, isActive: updated.isActive });
   }
 
+  // Inscrire le client : lui donner accès à son dashboard (après remplissage des métriques).
+  async function enroll() {
+    try {
+      await api(`/api/clients/${client.id}/enroll`, "POST");
+      setClient({ ...client, enrolled: true });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -83,12 +93,29 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
                 ? <><Icon name="check" /> Mensurations complétées</>
                 : <><Icon name="warning" /> Mensurations à remplir</>}
             </span>
+            {" · "}
+            <span
+              className="badge"
+              title="Accès au dashboard du client"
+              style={client.enrolled
+                ? { borderColor: "var(--green)", color: "var(--green)" }
+                : { borderColor: "var(--amber)", color: "var(--amber)" }}
+            >
+              {client.enrolled
+                ? <><Icon name="check" /> Inscrit — accès dashboard</>
+                : <><Icon name="warning" /> Accès dashboard bloqué</>}
+            </span>
             {client.prospect && (
               <> · <Link href={`/admin/crm/${client.prospect.id}`} style={{ color: "var(--accent)" }}>historique CRM →</Link></>
             )}
           </div>
         </div>
-        <div className="flex">
+        <div className="flex wrap">
+          {!client.enrolled && (
+            <button className="btn btn-primary" onClick={enroll} title="Donner au client l'accès à son dashboard">
+              <Icon name="check" /> Inscrire (donner accès)
+            </button>
+          )}
           <Link href={`/admin/clients/${client.id}/apercu`} className="btn">
             <Icon name="eye" /> Voir comme le client
           </Link>

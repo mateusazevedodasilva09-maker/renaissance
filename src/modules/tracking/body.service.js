@@ -49,10 +49,37 @@ export async function addMeasurement(clientId, data) {
  */
 export async function addMeasurementByClient(clientId, data) {
   const created = await addMeasurement(clientId, data);
-  await prisma.client.update({
+  const client = await prisma.client.findUnique({
     where: { id: clientId },
-    data: { onboardingMeasurementsDone: true },
+    select: {
+      onboardingMeasurementsDone: true,
+      prospectId: true,
+      user: { select: { firstName: true, lastName: true } },
+      group: { select: { coachId: true } },
+    },
   });
+
+  // Première complétion seulement : on marque l'étape faite ET on notifie le
+  // staff — une tâche apparaît dans l'agenda et le prospect reçoit un événement.
+  if (client && !client.onboardingMeasurementsDone) {
+    const name = `${client.user.firstName} ${client.user.lastName}`;
+    await prisma.client.update({ where: { id: clientId }, data: { onboardingMeasurementsDone: true } });
+    await prisma.task.create({
+      data: {
+        title: `Valider l'inscription — ${name}`,
+        description: "Le client a rempli ses métriques. Vérifiez sa fiche, puis donnez-lui accès à son dashboard (bouton « Inscrire »).",
+        category: "Inscriptions",
+        priority: "HIGH",
+        dueAt: new Date(),
+        assigneeId: client.group?.coachId || null, // au coach du groupe, sinon visible par l'admin
+      },
+    });
+    if (client.prospectId) {
+      await prisma.contactEvent.create({
+        data: { prospectId: client.prospectId, type: "SYSTEM", content: "Le client a rempli ses métriques d'onboarding." },
+      });
+    }
+  }
   return created;
 }
 

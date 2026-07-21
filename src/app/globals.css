@@ -632,6 +632,36 @@ textarea.input { resize: vertical; min-height: 84px; }
 .skeleton-line { border-radius: 6px; }
 @keyframes skeleton { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
+/* Notification staff : badge « inscriptions à valider » + toast à l'arrivée. */
+.notif-badge {
+  position: fixed;
+  bottom: 18px; left: 18px;
+  z-index: var(--z-toast);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--btn-primary-bg); color: var(--btn-primary-text);
+  font-size: 13px; font-weight: 600;
+  box-shadow: var(--shadow);
+}
+.notif-toast {
+  position: fixed;
+  bottom: 18px; right: 18px;
+  z-index: var(--z-toast);
+  display: flex; align-items: center; gap: 14px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-lg);
+  animation: pop-in 220ms var(--ease);
+}
+@media (max-width: 640px) {
+  .notif-badge { bottom: 10px; left: 10px; }
+  .notif-toast { left: 10px; right: 10px; max-width: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
