@@ -161,15 +161,15 @@ body > * { position: relative; z-index: 1; }
   pointer-events: none;
   /* Mode jour : dégradé doux, « normal ». */
   background:
-    radial-gradient(55% 50% at 8% -6%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 72%),
-    radial-gradient(55% 50% at 98% 2%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 72%),
-    radial-gradient(60% 55% at 50% 110%, color-mix(in srgb, var(--green) 12%, transparent), transparent 72%);
+    radial-gradient(55% 50% at 8% -6%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 72%),
+    radial-gradient(55% 50% at 98% 2%, color-mix(in srgb, var(--violet) 11%, transparent), transparent 72%),
+    radial-gradient(60% 55% at 50% 110%, color-mix(in srgb, var(--green) 8%, transparent), transparent 72%);
 }
 /* Mode nuit : dégradé accentué noir · orange · mauve. */
 :root[data-theme="dark"] .gradient-bg {
   background:
-    radial-gradient(55% 50% at 8% -6%, color-mix(in srgb, var(--accent) 43%, transparent), transparent 72%),
-    radial-gradient(55% 50% at 98% 2%, color-mix(in srgb, var(--violet) 41%, transparent), transparent 72%),
+    radial-gradient(55% 50% at 8% -6%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 72%),
+    radial-gradient(55% 50% at 98% 2%, color-mix(in srgb, var(--violet) 29%, transparent), transparent 72%),
     radial-gradient(120% 92% at 50% 128%, #090807, transparent 72%),
     linear-gradient(155deg, #1a1410 0%, transparent 46%);
 }
