@@ -15,6 +15,7 @@ import ExerciseThumb from "@/components/ExerciseThumb";
 import SessionSlotCard from "@/components/SessionSlotCard";
 import ProgramSessionCard from "@/components/espace/ProgramSessionCard";
 import QuickMessage from "@/components/espace/QuickMessage";
+import GradientBackground from "@/components/GradientBackground";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export default async function EspaceSeancesPage() {
 
   return (
     <div>
+      <GradientBackground />
       <div className="page-header">
         <div>
           <h1>Mes séances de la semaine</h1>

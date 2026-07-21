@@ -152,6 +152,20 @@ body::before {
 /* Le contenu passe au-dessus du grain. */
 body > * { position: relative; z-index: 1; }
 
+/* Fond dégradé décoratif (composant GradientBackground) : mesh doux de teintes
+   du thème, plein écran, derrière le contenu. Discret en sombre. */
+.gradient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 45% at 12% 6%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
+    radial-gradient(48% 42% at 92% 10%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 66%),
+    radial-gradient(60% 55% at 50% 108%, color-mix(in srgb, var(--green) 12%, transparent), transparent 70%);
+}
+:root[data-theme="dark"] .gradient-bg { opacity: 0.55; }
+
 a { color: inherit; text-decoration: none; }
 html { scroll-behavior: smooth; }
 

@@ -3,6 +3,7 @@
 /** Page de connexion (admin, coach, client). */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import GradientBackground from "@/components/GradientBackground";
 
 export default function ConnexionPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function ConnexionPage() {
 
   return (
     <div className="public-wrap">
+      <GradientBackground />
       <div className="public-card">
         <div className="card">
           <div className="flex mb">
