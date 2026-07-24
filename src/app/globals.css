@@ -1,8 +1,9 @@
 /* ===========================================================================
-   Renaissance — Design system v4  ·  « Atelier »
-   Refonte premium éditoriale : papier chaud, encre profonde, accent terracotta
-   unique, serif variable Fraunces pour l'affichage, grain subtil, profondeur
-   maîtrisée et micro-interactions physiques.
+   Essência — Design system  ·  « A força vem de dentro »
+   Papier crème, encre brun profond, accent terracotta unique (couleurs issues
+   de la charte : crème #fbf8f3, encre #2b2420, terracotta #b4613c / #d08a5f),
+   serif variable Fraunces pour l'affichage, grain subtil, profondeur maîtrisée
+   et micro-interactions physiques.
 
    ⚠️  Aucune logique métier n'est touchée : seuls les styles évoluent.
        Tous les noms de classes et de variables historiques sont conservés,
@@ -10,31 +11,31 @@
    =========================================================================== */
 
 /*
- * Polices :
- * - Fraunces (serif optique variable) pour les grands titres, la marque et les
- *   chiffres clés — beaucoup de caractère, parfaite pour une marque « Renaissance » ;
- * - Inter pour le corps et les interfaces denses, avec chiffres tabulaires activés
- *   sur les données (tableaux, stats) pour un alignement net.
+ * Polices (charte Essência) :
+ * - Spectral (serif) en SemiBold 600 pour les grands titres, la marque et les
+ *   chiffres clés — la police du logo ;
+ * - Inter pour le corps et les interfaces denses, avec chiffres tabulaires
+ *   activés sur les données (tableaux, stats) pour un alignement net.
  */
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;450;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&display=swap");
 
 :root {
-  /* — Surfaces & encre (famille de gris chauds, teintés) — */
-  --bg: #f3f1ec;
-  --bg-soft: #f8f6f2;
-  --panel: #fffefb;
-  --panel-2: #f1efe9;
-  --border: #e6e2d9;
-  --border-strong: #d8d3c7;
-  --text: #1b1915;
-  --text-dim: #757064;
-  --text-faint: #a49e90;
+  /* — Surfaces & encre (crème chaud, encre brun profond — charte Essência) — */
+  --bg: #f4efe4;
+  --bg-soft: #f9f5ee;
+  --panel: #fdfbf6;
+  --panel-2: #efe9dc;
+  --border: #e7e0d1;
+  --border-strong: #d8cfbc;
+  --text: #2b2420;
+  --text-dim: #6e625a;
+  --text-faint: #a89d8d;
 
-  /* — Accent unique : terracotta (désaturé, chaud) — */
-  --accent: #c8542c;
-  --accent-hover: #b0451f;
-  --accent-soft: rgba(200, 84, 44, 0.1);
-  --accent-line: rgba(200, 84, 44, 0.28);
+  /* — Accent unique : terracotta Essência (#b4613c) — */
+  --accent: #b4613c;
+  --accent-hover: #9d5030;
+  --accent-soft: rgba(180, 97, 60, 0.1);
+  --accent-line: rgba(180, 97, 60, 0.28);
 
   /* — Statuts (désaturés, cohérents avec la base chaude) — */
   --green: #2f8f5b;
@@ -50,14 +51,14 @@
   --radius-pill: 999px;
 
   /* — Ombres teintées chaudes (une seule direction de lumière, du haut) — */
-  --shadow-xs: 0 1px 2px rgba(43, 34, 22, 0.05);
-  --shadow-sm: 0 2px 8px rgba(43, 34, 22, 0.06);
-  --shadow: 0 18px 44px -12px rgba(43, 34, 22, 0.16);
-  --shadow-lg: 0 30px 70px -20px rgba(43, 34, 22, 0.24);
+  --shadow-xs: 0 1px 2px rgba(43, 36, 32, 0.05);
+  --shadow-sm: 0 2px 8px rgba(43, 36, 32, 0.06);
+  --shadow: 0 18px 44px -12px rgba(43, 36, 32, 0.16);
+  --shadow-lg: 0 30px 70px -20px rgba(43, 36, 32, 0.24);
 
-  --hover-row: rgba(27, 25, 21, 0.028);
-  --btn-primary-bg: #1b1915;
-  --btn-primary-text: #f8f6f2;
+  --hover-row: rgba(43, 36, 32, 0.028);
+  --btn-primary-bg: #2b2420;
+  --btn-primary-text: #fbf8f3;
 
   /* — Motion — */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -68,27 +69,27 @@
   --z-modal: 50;
   --z-toast: 80;
 
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-display: "Spectral", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 /* --- Mode sombre : nuit chaude, jamais du noir pur ------------------------- */
 
 :root[data-theme="dark"] {
-  --bg: #0d0b09;
-  --bg-soft: #141210;
-  --panel: #18150f;
-  --panel-2: #201d16;
-  --border: #2c281f;
-  --border-strong: #3a352a;
-  --text: #f4f1ea;
-  --text-dim: #a09a8b;
-  --text-faint: #6f695c;
+  --bg: #1a1512;
+  --bg-soft: #201a16;
+  --panel: #241d18;
+  --panel-2: #2b2420;
+  --border: #362d26;
+  --border-strong: #463a30;
+  --text: #fbf8f3;
+  --text-dim: #c9a98f;
+  --text-faint: #8a7d6f;
 
-  --accent: #e0693e;
-  --accent-hover: #ea764c;
-  --accent-soft: rgba(224, 105, 62, 0.15);
-  --accent-line: rgba(224, 105, 62, 0.35);
+  --accent: #d08a5f;
+  --accent-hover: #dd9a70;
+  --accent-soft: rgba(208, 138, 95, 0.15);
+  --accent-line: rgba(208, 138, 95, 0.35);
 
   --green: #3fc47e;
   --amber: #eaa63f;
@@ -102,8 +103,8 @@
   --shadow-lg: 0 34px 80px -22px rgba(0, 0, 0, 0.7);
 
   --hover-row: rgba(255, 255, 255, 0.03);
-  --btn-primary-bg: #f4f1ea;
-  --btn-primary-text: #1b1915;
+  --btn-primary-bg: #fbf8f3;
+  --btn-primary-text: #2b2420;
 }
 
 :root { color-scheme: light; }
@@ -161,8 +162,8 @@ body > * { position: relative; z-index: 1; }
   pointer-events: none;
   background:
     radial-gradient(55% 45% at 12% 6%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
-    radial-gradient(48% 42% at 92% 10%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 66%),
-    radial-gradient(60% 55% at 50% 108%, color-mix(in srgb, var(--green) 12%, transparent), transparent 70%);
+    radial-gradient(48% 42% at 92% 10%, color-mix(in srgb, var(--amber) 14%, transparent), transparent 66%),
+    radial-gradient(60% 55% at 50% 108%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%);
 }
 :root[data-theme="dark"] .gradient-bg { opacity: 0.55; }
 
@@ -171,19 +172,19 @@ html { scroll-behavior: smooth; }
 
 h1, h2, h3, h4 { margin: 0 0 8px; line-height: 1.15; text-wrap: balance; }
 
-/* Titres : serif optique large, tracking négatif pour de la présence. */
+/* Titres : Spectral SemiBold 600 (serif de la charte), léger resserrement. */
 h1 {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 34px;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.01em;
   font-optical-sizing: auto;
 }
 h2 {
   font-family: var(--font-display);
-  font-weight: 550;
+  font-weight: 600;
   font-size: 24px;
-  letter-spacing: -0.014em;
+  letter-spacing: -0.008em;
   font-optical-sizing: auto;
 }
 h3 { font-size: 15.5px; font-weight: 600; letter-spacing: -0.006em; }
@@ -226,7 +227,7 @@ p { margin: 0 0 10px; text-wrap: pretty; }
   padding: 6px 10px 22px;
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.005em;
   font-size: 22px;
 }
 
@@ -320,7 +321,7 @@ p { margin: 0 0 10px; text-wrap: pretty; }
   font-size: 32px;
   font-weight: 600;
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.005em;
   line-height: 1.05;
   font-optical-sizing: auto;
 }
@@ -608,7 +609,7 @@ textarea.input { resize: vertical; min-height: 84px; }
   padding: 24px;
   background:
     radial-gradient(120% 80% at 50% -10%, var(--accent-soft), transparent 55%),
-    radial-gradient(90% 70% at 100% 100%, rgba(111, 87, 224, 0.06), transparent 60%),
+    radial-gradient(90% 70% at 100% 100%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 60%),
     var(--bg);
   overflow: hidden;
 }

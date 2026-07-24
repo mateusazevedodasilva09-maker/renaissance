@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Renaissance — Coaching",
-  description: "Application de gestion de l'activité de coaching Renaissance.",
+  title: "Essência — Coaching",
+  description: "Essência — coaching sportif. A força vem de dentro.",
 };
 
 // Adaptation mobile : largeur réelle de l'appareil.

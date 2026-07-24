@@ -3,7 +3,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
 import OnboardingNotifier from "@/components/admin/OnboardingNotifier";
 
-export const metadata = { title: "Renaissance — Administration" };
+export const metadata = { title: "Essência — Administration" };
 
 export default async function AdminLayout({ children }) {
   const session = await getSession();

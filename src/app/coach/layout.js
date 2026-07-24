@@ -10,8 +10,9 @@ import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
 import CoachNav from "@/components/coach/CoachNav";
+import Logo from "@/components/Logo";
 
-export const metadata = { title: "Renaissance — Espace coach" };
+export const metadata = { title: "Essência — Espace coach" };
 
 export default async function CoachLayout({ children }) {
   const session = await getSession();
@@ -19,9 +20,9 @@ export default async function CoachLayout({ children }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-badge">R</div>
+          <div className="brand-badge"><Logo /></div>
           <div>
-            Renaissance
+            Essência
             <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>Espace coach</div>
           </div>
         </div>

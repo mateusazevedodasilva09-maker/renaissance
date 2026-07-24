@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import LogoutButton from "@/components/LogoutButton";
 import GradientBackground from "@/components/GradientBackground";
+import Logo from "@/components/Logo";
 
 export default function WaitingGate({ firstName }) {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function WaitingGate({ firstName }) {
       <GradientBackground />
       <div className="public-card">
         <div className="card" style={{ textAlign: "center" }}>
-          <div className="brand-badge" style={{ margin: "0 auto 14px" }}>R</div>
+          <div className="brand-badge" style={{ margin: "0 auto 14px" }}><Logo /></div>
           <h2>Merci{firstName ? `, ${firstName}` : ""} !</h2>
           <p className="muted">
             Vos mesures sont bien enregistrées. Votre coach valide votre inscription :

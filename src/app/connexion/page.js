@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import GradientBackground from "@/components/GradientBackground";
+import Logo from "@/components/Logo";
 
 export default function ConnexionPage() {
   const router = useRouter();
@@ -34,8 +35,13 @@ export default function ConnexionPage() {
       <div className="public-card">
         <div className="card">
           <div className="flex mb">
-            <div className="brand-badge">R</div>
-            <h2 style={{ marginBottom: 0 }}>Connexion</h2>
+            <div className="brand-badge"><Logo /></div>
+            <div>
+              <h2 style={{ marginBottom: 0 }}>Connexion</h2>
+              <span className="muted" style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.18em", fontSize: 10.5, fontWeight: 300, marginTop: 3 }}>
+                A força vem de dentro
+              </span>
+            </div>
           </div>
           {state.error && <div className="alert alert-error">{state.error}</div>}
           <form onSubmit={submit}>

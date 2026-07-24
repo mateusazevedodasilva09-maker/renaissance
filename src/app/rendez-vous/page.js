@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 export default function RendezVousPage() {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", goalId: "", generalNote: "" });
@@ -43,9 +44,9 @@ export default function RendezVousPage() {
       <div className="public-card">
         <div className="card">
           <div className="flex mb">
-            <div className="brand-badge">R</div>
+            <div className="brand-badge"><Logo /></div>
             <div>
-              <h2 style={{ marginBottom: 0 }}>Renaissance</h2>
+              <h2 style={{ marginBottom: 0 }}>Essência</h2>
               <span className="muted small">Coaching sportif en groupe</span>
             </div>
           </div>

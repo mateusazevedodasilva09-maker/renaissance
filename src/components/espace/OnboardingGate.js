@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import LogoutButton from "@/components/LogoutButton";
 import GradientBackground from "@/components/GradientBackground";
+import Logo from "@/components/Logo";
 
 const FIELDS = [
   ["weightKg", "Poids", "kg", true],
@@ -55,7 +56,7 @@ export default function OnboardingGate({ firstName }) {
       <div className="public-card" style={{ maxWidth: 560 }}>
         <div className="card">
           <div className="flex mb" style={{ gap: 12 }}>
-            <div className="brand-badge">R</div>
+            <div className="brand-badge"><Logo /></div>
             <div>
               <h2 style={{ marginBottom: 2 }}>Bienvenue{firstName ? `, ${firstName}` : ""} !</h2>
               <div className="muted small">Dernière étape avant d&apos;accéder à votre espace.</div>

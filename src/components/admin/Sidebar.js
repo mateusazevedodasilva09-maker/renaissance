@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
+import Logo from "@/components/Logo";
 
 /** Liens du menu — filtrés selon le rôle (admin ou coach). */
 const LINKS = [
@@ -28,9 +29,9 @@ export default function Sidebar({ userName, role = "ADMIN", children }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-badge">R</div>
+        <div className="brand-badge"><Logo /></div>
         <div>
-          Renaissance
+          Essência
           <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>
             {role === "COACH" ? "Espace coach" : "Pilotage coaching"}
           </div>

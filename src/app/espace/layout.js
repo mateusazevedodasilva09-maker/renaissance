@@ -11,8 +11,9 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
 import OnboardingGate from "@/components/espace/OnboardingGate";
 import WaitingGate from "@/components/espace/WaitingGate";
+import Logo from "@/components/Logo";
 
-export const metadata = { title: "Renaissance — Mon espace" };
+export const metadata = { title: "Essência — Mon espace" };
 export const dynamic = "force-dynamic";
 
 export default async function EspaceLayout({ children }) {
@@ -45,9 +46,9 @@ export default async function EspaceLayout({ children }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-badge">R</div>
+          <div className="brand-badge"><Logo /></div>
           <div>
-            Renaissance
+            Essência
             <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>Mon espace</div>
           </div>
         </div>
