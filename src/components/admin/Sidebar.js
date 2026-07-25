@@ -18,13 +18,14 @@ const LINKS = [
   { href: "/admin/objectifs", label: "Objectifs & programmes", icon: "target", roles: ["ADMIN"] },
   { href: "/admin/programmes", label: "Programmes", icon: "note", roles: ["ADMIN", "COACH"] },
   { href: "/admin/messages", label: "Messages", icon: "message", roles: ["ADMIN", "COACH"] },
-  // ── INTERFACE COACH : tout regroupé sous une ligne, dans la même barre, pour
-  //    que ce soit une seule page (aucun clic intermédiaire).
+  // ── INTERFACE COACH : sous une ligne, dans la même barre. Les sous-liens ne
+  //    s'affichent QUE pour le coach (pour l'admin, un seul lien d'observation,
+  //    afin de ne pas encombrer sa navigation).
   { href: "/coach", label: "Interface coach", icon: "home", roles: ["ADMIN", "COACH"], exact: true, divider: true },
-  { href: "/coach/planning", label: "Planning coach", icon: "calendar", roles: ["ADMIN", "COACH"] },
-  { href: "/coach/groupes", label: "Groupes coach", icon: "users", roles: ["ADMIN", "COACH"] },
-  { href: "/coach/messages", label: "Messages coach", icon: "message", roles: ["ADMIN", "COACH"] },
-  { href: "/coach/agenda", label: "Agenda coach", icon: "clipboard", roles: ["ADMIN", "COACH"] },
+  { href: "/coach/planning", label: "Planning coach", icon: "calendar", roles: ["COACH"] },
+  { href: "/coach/groupes", label: "Groupes coach", icon: "users", roles: ["COACH"] },
+  { href: "/coach/messages", label: "Messages coach", icon: "message", roles: ["COACH"] },
+  { href: "/coach/agenda", label: "Agenda coach", icon: "clipboard", roles: ["COACH"] },
   { href: "/admin/seances", label: "Séances & planning", icon: "clock", roles: ["ADMIN"] },
   { href: "/admin/exercices", label: "Exercices", icon: "clipboard", roles: ["ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: "user", roles: ["ADMIN"] },
