@@ -38,7 +38,7 @@ export default function FeedbackInbox({ initialFeedbacks }) {
       const updated = await api(`/api/feedback/${f.id}`, "PATCH", { coachReply: replying[f.id] });
       setFeedbacks(feedbacks.map((x) => (x.id === f.id ? updated : x)));
       setReplying({ ...replying, [f.id]: undefined });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

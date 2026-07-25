@@ -13,7 +13,7 @@ const themeScript = `
 try {
   var t = localStorage.getItem("renaissance-theme");
   if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
-} catch (e) {}
+} catch (e) { console.error(e);}
 `;
 
 export default function RootLayout({ children }) {

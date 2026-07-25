@@ -51,7 +51,7 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     try {
       const updated = await api(`/api/clients/${client.id}`, "PATCH", { goalIds: next });
       setClient({ ...client, goals: updated.goals });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -66,7 +66,7 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     try {
       await api(`/api/clients/${client.id}/enroll`, "POST");
       setClient({ ...client, enrolled: true });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -280,7 +280,7 @@ function ProfileCard({ client, lastWeight, onSaved }) {
       onSaved(updated);
       setMsg("✓ Profil enregistré");
       setTimeout(() => setMsg(null), 2000);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -382,7 +382,7 @@ function ObjectiveCard({ client, lastWeight, onSaved }) {
       onSaved(updated);
       setMsg("✓ Objectif enregistré");
       setTimeout(() => setMsg(null), 2000);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -451,7 +451,7 @@ function NutritionCard({ client, lastWeight, onSaved }) {
       onSaved(updated);
       setMsg("✓ Cible enregistrée");
       setTimeout(() => setMsg(null), 2000);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -548,7 +548,7 @@ function AdviceCard({ client }) {
       setSent(true);
       setMsg("✓ Conseil envoyé (prioritaire sur celui du groupe)");
       setTimeout(() => setMsg(null), 2500);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -636,7 +636,7 @@ function SessionReportCard({ client, sessionTypes = [], exercises = [], onUpdate
           (level.delta ? ` (${level.delta > 0 ? "+" : ""}${level.delta} · ${level.reason})` : "")
       );
       setTimeout(() => setMsg(null), 3500);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -646,7 +646,7 @@ function SessionReportCard({ client, sessionTypes = [], exercises = [], onUpdate
     try {
       const res = await api(`/api/session-reports/${r.id}`, "DELETE");
       onUpdate({ sessionReports: reports.filter((x) => x.id !== r.id), level: res.level });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -793,7 +793,7 @@ function StrengthTab({ client, exercises, onUpdate, onError }) {
       const log = await api(`/api/clients/${client.id}/strength-logs`, "POST", form);
       onUpdate({ strengthLogs: [...(client.strengthLogs || []), log].sort((a, b) => new Date(a.date) - new Date(b.date)) });
       setForm({ ...form, weightKg: "", reps: "" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -853,7 +853,7 @@ function CardioTab({ client, onUpdate, onError }) {
       const log = await api(`/api/clients/${client.id}/cardio-logs`, "POST", form);
       onUpdate({ cardioLogs: [...(client.cardioLogs || []), log].sort((a, b) => new Date(a.date) - new Date(b.date)) });
       setForm({ date: "", distanceKm: "", paceMinPerKm: "", avgHeartRate: "" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -907,7 +907,7 @@ function AttendanceTab({ client, rate, onUpdate, onError }) {
       });
       onUpdate({ attendances: [...(client.attendances || []), att].sort((a, b) => new Date(a.date) - new Date(b.date)) });
       setForm({ date: "", present: "1", label: "" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -958,7 +958,7 @@ function ProgramCard({ client, exercises, activeProgram, onGenerated }) {
     try {
       await api("/api/programs", "POST", { clientId: client.id, auto: true });
       onGenerated();
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);

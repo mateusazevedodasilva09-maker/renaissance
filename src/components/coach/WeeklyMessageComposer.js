@@ -67,7 +67,7 @@ export default function WeeklyMessageComposer({ groups = [] }) {
       const rows = await api(`/api/advice?groupId=${groupId}`, "GET");
       setHistory(rows);
       setStatus({ loading: false, error: null, ok: true });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setStatus({ loading: false, error: err.message, ok: false });
     }
   }

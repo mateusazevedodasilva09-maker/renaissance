@@ -145,7 +145,7 @@ export default function TrackingView({ initialMetrics, strengthLogs = [], cardio
       const rest = metrics.filter((m) => m.id !== json.data.id);
       setMetrics([...rest, json.data].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart)));
       setMsg({ type: "success", text: "✓ Semaine enregistrée, bravo pour la régularité !" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg({ type: "error", text: err.message });
     }
   }

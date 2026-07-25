@@ -44,7 +44,7 @@ export function BilanCard({ client, onSaved }) {
       onSaved(updated);
       setMsg("✓ Bilan enregistré");
       setTimeout(() => setMsg(null), 2000);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg(err.message);
     }
   }
@@ -130,7 +130,7 @@ function MeasurementsTab({ client, onUpdate, onError }) {
       const created = await api(`/api/clients/${client.id}/measurements`, "POST", form);
       onUpdate({ measurements: [...measurements, created].sort((a, b) => new Date(a.date) - new Date(b.date)) });
       setForm({ date: "", notes: "", ...empty });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -140,7 +140,7 @@ function MeasurementsTab({ client, onUpdate, onError }) {
     try {
       await api(`/api/measurements/${m.id}`, "DELETE");
       onUpdate({ measurements: measurements.filter((x) => x.id !== m.id) });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -247,7 +247,7 @@ function PhotosTab({ client, onUpdate, onError }) {
       setFile(null);
       setForm({ pose: "FRONT", date: "", notes: "" });
       e.target.reset();
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     } finally {
       setSending(false);
@@ -259,7 +259,7 @@ function PhotosTab({ client, onUpdate, onError }) {
     try {
       await api(`/api/photos/${photo.id}`, "DELETE");
       onUpdate({ photos: photos.filter((p) => p.id !== photo.id) });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }

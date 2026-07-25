@@ -32,7 +32,7 @@ export default function UserManager({ initialUsers, sessionUserId }) {
     try {
       const updated = await api(`/api/users/${u.id}`, "PATCH", data);
       setUsers(users.map((x) => (x.id === u.id ? { ...x, ...updated } : x)));
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

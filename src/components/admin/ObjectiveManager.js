@@ -72,7 +72,7 @@ function ObjectiveCard({ objective, generators }) {
       const finalParams = { ...params, goal: mappedGoal };
       await api("/api/programs", "POST", { goalId: objective.id, generatorKey, params: finalParams });
       router.refresh();
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);

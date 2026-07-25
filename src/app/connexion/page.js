@@ -24,7 +24,7 @@ export default function ConnexionPage() {
       if (!json.ok) throw new Error(json.error || "Connexion impossible.");
       router.push(json.data.role === "CLIENT" ? "/espace" : "/admin");
       router.refresh();
-    } catch (err) {
+    } catch (err) { console.error(err);
       setState({ loading: false, error: err.message });
     }
   }

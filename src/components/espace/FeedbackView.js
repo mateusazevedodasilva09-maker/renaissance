@@ -32,7 +32,7 @@ export default function FeedbackView({ initialFeedbacks = [] }) {
       setFeedbacks([json.data, ...feedbacks]);
       setContent("");
       setMsg({ type: "success", text: "✓ Message envoyé à votre coach !" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg({ type: "error", text: err.message });
     } finally {
       setLoading(false);

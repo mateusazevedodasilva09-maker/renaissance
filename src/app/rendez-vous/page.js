@@ -34,7 +34,7 @@ export default function RendezVousPage() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Une erreur est survenue.");
       setState({ loading: false, done: true, error: null });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setState({ loading: false, done: false, error: err.message });
     }
   }

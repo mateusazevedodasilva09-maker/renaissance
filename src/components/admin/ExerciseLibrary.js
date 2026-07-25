@@ -60,7 +60,7 @@ export default function ExerciseLibrary({ initialExercises, readOnly = false }) 
       const ex = await api("/api/exercises", "POST", form);
       setExercises([...exercises, ex].sort((a, b) => a.name.localeCompare(b.name)));
       setForm({ name: "", muscleGroup: "", equipment: "", level: 1 });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

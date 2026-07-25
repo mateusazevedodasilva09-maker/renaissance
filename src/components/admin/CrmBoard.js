@@ -55,7 +55,7 @@ export default function CrmBoard({ initialProspects, initialStatuses, goals = []
     setProspects((ps) => ps.map((p) => (p.id === prospectId ? { ...p, statusId, status } : p)));
     try {
       await api(`/api/prospects/${prospectId}`, "PATCH", { statusId });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
       setProspects((ps) => ps.map((p) => (p.id === prospectId ? prospect : p)));
     }
@@ -226,7 +226,7 @@ function NewProspectModal({ goals = [], onClose, onCreated }) {
     e.preventDefault();
     try {
       onCreated(await api("/api/prospects", "POST", form));
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -288,7 +288,7 @@ function StatusesModal({ statuses, onClose, onChange }) {
       const created = await api("/api/pipeline/statuses", "POST", { label, color });
       onChange([...statuses, created]);
       setLabel("");
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -297,7 +297,7 @@ function StatusesModal({ statuses, onClose, onChange }) {
     try {
       await api(`/api/pipeline/statuses/${s.id}`, "DELETE");
       onChange(statuses.filter((x) => x.id !== s.id));
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

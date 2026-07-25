@@ -28,7 +28,7 @@ export default function QuickMessage() {
       if (!json.ok) throw new Error(json.error);
       setContent("");
       setMsg({ type: "success", text: "Message envoyé à votre coach." });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg({ type: "error", text: err.message });
     } finally {
       setLoading(false);

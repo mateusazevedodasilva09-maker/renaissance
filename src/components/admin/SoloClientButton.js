@@ -66,7 +66,10 @@ function SoloClientModal({ coaches, onClose, onCreated }) {
       });
       onCreated(client);
     } catch (err) {
-      setError(err.message);
+      // Détail technique complet en console uniquement ; l'UI ne montre qu'un
+      // message court et sûr (jamais d'info technique ni sensible à l'écran).
+      console.error("[SoloClient] création échouée:", err);
+      setError("Impossible de créer le client. Vérifiez les champs et réessayez.");
       setSaving(false);
     }
   }

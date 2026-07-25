@@ -44,7 +44,7 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
       const updated = await fn();
       if (updated) setProgram(updated);
       return updated;
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -123,7 +123,7 @@ function TemplateBar({ program, clientId, onApplied, onError }) {
       setTemplates([created, ...templates]);
       setMsg("✓ Modèle enregistré");
       setTimeout(() => setMsg(null), 2500);
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     } finally {
       setSaving(false);
@@ -138,7 +138,7 @@ function TemplateBar({ program, clientId, onApplied, onError }) {
     try {
       await api(`/api/programs/templates/${templateId}`, "POST", { clientId });
       onApplied(); // recharge la fiche : le nouveau programme devient la source
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }

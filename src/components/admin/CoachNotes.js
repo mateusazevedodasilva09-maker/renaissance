@@ -40,7 +40,7 @@ export default function CoachNotes({ client, onUpdate }) {
       onUpdate({ coachNotes: sortNotes([note, ...notes]) });
       setContent("");
       setError(null);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -49,7 +49,7 @@ export default function CoachNotes({ client, onUpdate }) {
     try {
       const updated = await api(`/api/notes/${note.id}`, "PATCH", { isPinned: !note.isPinned });
       onUpdate({ coachNotes: sortNotes(notes.map((n) => (n.id === note.id ? updated : n))) });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -59,7 +59,7 @@ export default function CoachNotes({ client, onUpdate }) {
     try {
       await api(`/api/notes/${note.id}`, "DELETE");
       onUpdate({ coachNotes: notes.filter((n) => n.id !== note.id) });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

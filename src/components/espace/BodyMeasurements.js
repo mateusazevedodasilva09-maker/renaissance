@@ -49,7 +49,7 @@ export default function BodyMeasurements({ initialMeasurements = [], onboardingD
       setForm(empty);
       setDone(true);
       setMsg({ type: "success", text: "✓ Mensurations enregistrées, merci !" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setMsg({ type: "error", text: err.message });
     } finally {
       setSaving(false);

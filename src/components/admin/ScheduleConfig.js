@@ -57,7 +57,7 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
     try {
       await api(`/api/goals/${g.id}`, "DELETE");
       setGoals(goals.filter((x) => x.id !== g.id));
-    } catch (err) { setError(err.message); }
+    } catch (err) { console.error(err); setError(err.message); }
   }
 
   // Thématique dont on est en train d'éditer le contenu type (exercices).
@@ -77,7 +77,7 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
       // On enchaîne directement sur le choix des exercices de la séance :
       // c'est le geste naturel du coach juste après avoir nommé la séance.
       setEditingExercises(t);
-    } catch (err) { setError(err.message); }
+    } catch (err) { console.error(err); setError(err.message); }
   }
 
   /**
@@ -96,14 +96,14 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
     try {
       const s = await api("/api/slots", "POST", slotForm);
       setSlots([...slots, s]);
-    } catch (err) { setError(err.message); }
+    } catch (err) { console.error(err); setError(err.message); }
   }
 
   async function removeSlot(id) {
     try {
       await api(`/api/slots/${id}`, "DELETE");
       setSlots(slots.filter((s) => s.id !== id));
-    } catch (err) { setError(err.message); }
+    } catch (err) { console.error(err); setError(err.message); }
   }
 
   async function addGoal(e) {
@@ -112,7 +112,7 @@ export default function ScheduleConfig({ initialTypes, initialSlots, initialGoal
       const g = await api("/api/goals", "POST", { label: goalLabel });
       setGoals([...goals, g]);
       setGoalLabel("");
-    } catch (err) { setError(err.message); }
+    } catch (err) { console.error(err); setError(err.message); }
   }
 
   return (
@@ -366,7 +366,7 @@ function TypeExercisesModal({ type, onClose, onSaved }) {
         })),
       });
       onSaved(t);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
       setSaving(false);
     }

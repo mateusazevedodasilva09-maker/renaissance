@@ -92,7 +92,7 @@ export default function ProspectFile({ initialProspect, statuses, goals, staff }
       setP({ ...p, ...updated });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -103,7 +103,7 @@ export default function ProspectFile({ initialProspect, statuses, goals, staff }
       router.refresh();
       const status = statuses.find((s) => s.id === statusId);
       setP({ ...p, statusId, status });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -114,7 +114,7 @@ export default function ProspectFile({ initialProspect, statuses, goals, staff }
       const created = await api(`/api/prospects/${p.id}/events`, "POST", event);
       setP({ ...p, contactEvents: [created, ...p.contactEvents], lastContactAt: created.occurredAt });
       setEvent({ type: "CALL", content: "" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -334,7 +334,7 @@ function ConvertModal({ prospect, goals, onClose, onConverted }) {
     try {
       const data = await api(`/api/prospects/${prospect.id}/convert`, "POST", { password, goalIds });
       setResult(data);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);

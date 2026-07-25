@@ -44,7 +44,7 @@ export default function OnboardingGate({ firstName }) {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error);
       router.refresh(); // le layout réévalue → écran « en attente de validation »
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
       setSaving(false);
     }

@@ -149,7 +149,7 @@ function ClientLogger({ clientId, todayKey, todaySlots, onError }) {
         label: session?.name || todaySlots[0]?.sessionType?.name || "Séance",
       });
       setAttendanceMarked(true);
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     }
   }
@@ -238,7 +238,7 @@ function ExerciseLogRow({ clientId, item, history, onError }) {
       // La charge reste pré-remplie pour la série suivante ; reps/RPE se vident.
       setSaved([...saved, log]);
       setForm({ ...form, reps: "", rpe: "" });
-    } catch (err) {
+    } catch (err) { console.error(err);
       onError(err.message);
     } finally {
       setSaving(false);

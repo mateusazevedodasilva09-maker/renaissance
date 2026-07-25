@@ -44,7 +44,7 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
     try {
       await api(`/api/groups/${g.id}`, "DELETE");
       setGroups(groups.filter((x) => x.id !== g.id));
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -194,7 +194,7 @@ function GroupModal({ group, goals, coaches, onClose, onSaved }) {
         ? await api(`/api/groups/${group.id}`, "PATCH", form)
         : await api("/api/groups", "POST", form);
       onSaved(saved);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -268,7 +268,7 @@ function AdviceModal({ group, onClose }) {
       await api("/api/advice", "POST", { content, groupId: group.id });
       setSaved(true);
       setTimeout(onClose, 900);
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }

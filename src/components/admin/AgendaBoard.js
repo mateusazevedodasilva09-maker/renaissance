@@ -200,7 +200,7 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
         setTasks([...tasks, created]);
         setShowTaskModal(false);
       }
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
@@ -219,7 +219,7 @@ export default function AgendaBoard({ initialTasks, initialAppointments, nextAct
       setScheduling(null);
       setScheduleAt("");
       router.refresh();
-    } catch (err) {
+    } catch (err) { console.error(err);
       setError(err.message);
     }
   }
