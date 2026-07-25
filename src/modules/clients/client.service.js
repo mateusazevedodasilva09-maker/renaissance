@@ -213,6 +213,64 @@ export function listPendingValidation({ role, userId } = {}) {
   });
 }
 
+/**
+ * Ajout direct d'un client en SUIVI INDIVIDUEL (1v1) — pour les clients déjà
+ * coachés hors CRM. Crée en une fois :
+ *   1. le compte utilisateur CLIENT (identifiant + mot de passe) ;
+ *   2. un groupe PERSONNEL d'une place (« 1v1 — Prénom Nom ») relié au coach ;
+ *   3. la fiche client, placée dans ce groupe et déjà inscrite (accès dashboard).
+ * Le groupe perso sert de conteneur : le client apparaît ainsi dans l'espace
+ * du coach, sans mélange avec les groupes collectifs.
+ */
+export async function createSoloClient({ firstName, lastName, email, phone, password, coachId, goalIds = [] }) {
+  if (!firstName?.trim() || !lastName?.trim()) throw new ApiError("Le prénom et le nom sont requis.");
+  if (!email?.trim()) throw new ApiError("L'e-mail est requis.");
+  if (!password || password.length < 8) throw new ApiError("Mot de passe : 8 caractères minimum.");
+
+  const emailTaken = await prisma.user.findUnique({ where: { email: email.trim() } });
+  if (emailTaken) throw new ApiError("Un compte utilise déjà cette adresse e-mail.");
+
+  const user = await createUser({
+    email: email.trim(),
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    phone: phone?.trim() || null,
+    role: "CLIENT",
+    password,
+  });
+
+  // Groupe personnel (capacité 1) relié au coach : le conteneur du suivi 1v1.
+  const group = await prisma.group.create({
+    data: {
+      name: `1v1 — ${firstName.trim()} ${lastName.trim()}`,
+      capacity: 1,
+      coachId: coachId || null,
+      goalId: null,
+    },
+  });
+
+  const client = await prisma.client.create({
+    data: {
+      userId: user.id,
+      groupId: group.id,
+      enrolled: true, // client déjà suivi → accès direct à son espace
+      onboardingMeasurementsDone: false, // il renseignera ses mensurations
+      ...(goalIds.length ? { goals: { create: goalIds.map((goalId) => ({ goalId })) } } : {}),
+    },
+    include,
+  });
+
+  // Programme généré d'emblée s'il a un objectif (sinon on n'empêche rien).
+  try {
+    const { ensureClientProgram } = await import("@/modules/programs/program.service");
+    await ensureClientProgram(client.id);
+  } catch (err) {
+    // Sans objectif, pas de programme : l'ajout reste valide.
+  }
+
+  return { client, username: user.username };
+}
+
 /** Mise à jour d'un client : notes, activation, objectifs, profil, groupe. */
 export async function updateClient(id, data) {
   const { goalIds } = data;

@@ -5,7 +5,9 @@
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { listClients } from "@/modules/clients/client.service";
+import { listCoaches } from "@/modules/coach/coach.service";
 import { formatDate } from "@/lib/dates";
+import SoloClientButton from "@/components/admin/SoloClientButton";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,8 @@ export default async function ClientsPage() {
   const session = await getSession();
   const isCoach = session?.role === "COACH";
   const clients = await listClients(isCoach ? { coachUserId: session.userId } : {});
+  // Liste des coachs pour l'ajout d'un client 1v1 (réservé à l'admin).
+  const coaches = isCoach ? [] : await listCoaches();
 
   return (
     <div>
@@ -25,6 +29,7 @@ export default async function ClientsPage() {
               : "Les prospects convertis. Gérez leur espace : objectifs, programme, suivi."}
           </div>
         </div>
+        {!isCoach && <SoloClientButton coaches={JSON.parse(JSON.stringify(coaches))} />}
       </div>
 
       <div className="card">
