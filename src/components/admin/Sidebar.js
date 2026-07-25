@@ -18,8 +18,13 @@ const LINKS = [
   { href: "/admin/objectifs", label: "Objectifs & programmes", icon: "target", roles: ["ADMIN"] },
   { href: "/admin/programmes", label: "Programmes", icon: "note", roles: ["ADMIN", "COACH"] },
   { href: "/admin/messages", label: "Messages", icon: "message", roles: ["ADMIN", "COACH"] },
-  // Séparé du reste : accès à l'espace coach dédié (placé sous Messages).
-  { href: "/coach", label: "Interface coach", icon: "dumbbell", roles: ["ADMIN", "COACH"], divider: true },
+  // ── INTERFACE COACH : tout regroupé sous une ligne, dans la même barre, pour
+  //    que ce soit une seule page (aucun clic intermédiaire).
+  { href: "/coach", label: "Interface coach", icon: "home", roles: ["ADMIN", "COACH"], exact: true, divider: true },
+  { href: "/coach/planning", label: "Planning coach", icon: "calendar", roles: ["ADMIN", "COACH"] },
+  { href: "/coach/groupes", label: "Groupes coach", icon: "users", roles: ["ADMIN", "COACH"] },
+  { href: "/coach/messages", label: "Messages coach", icon: "message", roles: ["ADMIN", "COACH"] },
+  { href: "/coach/agenda", label: "Agenda coach", icon: "clipboard", roles: ["ADMIN", "COACH"] },
   { href: "/admin/seances", label: "Séances & planning", icon: "clock", roles: ["ADMIN"] },
   { href: "/admin/exercices", label: "Exercices", icon: "clipboard", roles: ["ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: "user", roles: ["ADMIN"] },
