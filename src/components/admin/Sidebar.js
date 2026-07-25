@@ -15,10 +15,11 @@ const LINKS = [
   { href: "/admin/crm", label: "CRM & Pipeline", icon: "briefcase", roles: ["ADMIN"] },
   { href: "/admin/clients", label: "Clients inscrits", icon: "dumbbell", roles: ["ADMIN", "COACH"] },
   { href: "/admin/groupes", label: "Groupes", icon: "users", roles: ["ADMIN", "COACH"] },
-  { href: "/coach", label: "Interface coach", icon: "dumbbell", roles: ["ADMIN", "COACH"] },
   { href: "/admin/objectifs", label: "Objectifs & programmes", icon: "target", roles: ["ADMIN"] },
   { href: "/admin/programmes", label: "Programmes", icon: "note", roles: ["ADMIN", "COACH"] },
   { href: "/admin/messages", label: "Messages", icon: "message", roles: ["ADMIN", "COACH"] },
+  // Séparé du reste : accès à l'espace coach dédié (placé sous Messages).
+  { href: "/coach", label: "Interface coach", icon: "dumbbell", roles: ["ADMIN", "COACH"], divider: true },
   { href: "/admin/seances", label: "Séances & planning", icon: "clock", roles: ["ADMIN"] },
   { href: "/admin/exercices", label: "Exercices", icon: "clipboard", roles: ["ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: "user", roles: ["ADMIN"] },
@@ -41,9 +42,13 @@ export default function Sidebar({ userName, role = "ADMIN", children }) {
       {LINKS.filter((l) => l.roles.includes(role)).map((l) => {
         const active = l.exact ? pathname === l.href : pathname.startsWith(l.href);
         return (
-          <Link key={l.href} href={l.href} className={`nav-link${active ? " active" : ""}`}>
-            <span><Icon name={l.icon} /></span> {l.label}
-          </Link>
+          <div key={l.href}>
+            {/* Ligne de séparation avant un lien marqué `divider`. */}
+            {l.divider && <div style={{ borderTop: "1px solid var(--border)", margin: "10px 10px 6px" }} />}
+            <Link href={l.href} className={`nav-link${active ? " active" : ""}`}>
+              <span><Icon name={l.icon} /></span> {l.label}
+            </Link>
+          </div>
         );
       })}
       <div style={{ marginTop: "auto", padding: "14px 10px 4px", display: "grid", gap: 8 }}>

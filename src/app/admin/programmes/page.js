@@ -1,13 +1,17 @@
 /**
- * Programmes — la liste de TOUS les programmes générés (par objectif ou par
- * client), avec leur statut, leur cible, leur nombre de séances et leur date.
- * Un programme généré y reste visible même une fois archivé (remplacé par une
- * nouvelle génération).
+ * Programmes — espace de création (haut) + liste de tous les programmes (bas).
+ *  - En haut : le coach/admin choisit un client et construit son programme à la
+ *    main (jours + exercices via la silhouette, modèles réutilisables).
+ *  - En bas : la liste des programmes existants. Un coach ne voit que ceux de
+ *    ses propres clients (encapsulation).
  */
 import Link from "next/link";
-import { listAllPrograms } from "@/modules/programs/program.service";
+import { getSession } from "@/lib/session";
+import { listAllPrograms, listExercises } from "@/modules/programs/program.service";
+import { listClients } from "@/modules/clients/client.service";
 import { formatDate } from "@/lib/dates";
 import Icon from "@/components/Icon";
+import ProgramBuilder from "@/components/admin/ProgramBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +22,21 @@ const STATUS = {
 };
 
 export default async function ProgrammesPage() {
-  const programs = await listAllPrograms();
+  const session = await getSession();
+  const isCoach = session?.role === "COACH";
+
+  const [allPrograms, clientsRaw, exercises] = await Promise.all([
+    listAllPrograms(),
+    listClients({ activeOnly: true, ...(isCoach ? { coachUserId: session.userId } : {}) }),
+    listExercises(),
+  ]);
+
+  // Clients autorisés pour la construction (coach → seulement les siens).
+  const clients = clientsRaw.map((c) => ({ id: c.id, name: `${c.user.firstName} ${c.user.lastName}` }));
+
+  // Liste des programmes : un coach ne voit que ceux de SES clients.
+  const allowedIds = new Set(clientsRaw.map((c) => c.id));
+  const programs = isCoach ? allPrograms.filter((p) => p.clientId && allowedIds.has(p.clientId)) : allPrograms;
   const active = programs.filter((p) => p.status === "ACTIVE").length;
 
   return (
@@ -27,15 +45,24 @@ export default async function ProgrammesPage() {
         <div>
           <h1>Programmes</h1>
           <div className="subtitle">
-            Tous les programmes générés, par objectif ou par client. {programs.length} au total · {active} actif(s).
+            Construisez un programme pour un client, ou consultez ceux existants. {programs.length} au total · {active} actif(s).
           </div>
         </div>
       </div>
 
+      {/* Espace de création */}
+      <ProgramBuilder
+        clients={JSON.parse(JSON.stringify(clients))}
+        exercises={JSON.parse(JSON.stringify(exercises))}
+      />
+
+      {/* Séparation nette entre la création et la liste existante */}
+      <div className="section-label">Programmes existants</div>
+
       <div className="card">
         {programs.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            Aucun programme pour l&apos;instant. Générez-en depuis « Objectifs &amp; programmes » ou une fiche client.
+            Aucun programme pour l&apos;instant. Créez-en un ci-dessus en choisissant un client.
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
