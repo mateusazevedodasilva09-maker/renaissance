@@ -49,6 +49,13 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
     }
   }
 
+  // Crée un programme vierge (aucun objectif requis) puis passe directement en
+  // mode édition pour construire les jours et exercices à la main.
+  async function createBlank() {
+    const created = await mutate(() => api("/api/programs", "POST", { clientId, blank: true }));
+    if (created) setEditing(true);
+  }
+
   return (
     <div>
       {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
@@ -61,7 +68,12 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
               <span className="badge"><span className="dot" style={{ background: "var(--green)" }} />Actif — visible par le client</span>
             </>
           ) : (
-            <span className="muted">Aucun programme actif.</span>
+            <div className="flex" style={{ alignItems: "center", gap: 10 }}>
+              <span className="muted">Aucun programme actif.</span>
+              <button className="btn btn-sm btn-primary" onClick={createBlank}>
+                <Icon name="plus" /> Créer un programme vierge
+              </button>
+            </div>
           )}
         </div>
         <div className="flex wrap">

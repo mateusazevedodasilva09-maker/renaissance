@@ -27,6 +27,30 @@ function reloadProgram(programId) {
   return prisma.program.findUnique({ where: { id: programId }, include: fullInclude });
 }
 
+/**
+ * Crée un programme VIERGE (sans générateur) pour un client, prêt à être
+ * construit à la main par le coach. L'ancien programme actif est archivé (même
+ * règle que la génération / l'application de modèle). On démarre avec un jour
+ * vide pour que le coach puisse ajouter ses exercices tout de suite.
+ */
+export async function createBlankProgram(clientId, { title } = {}, { userId = null } = {}) {
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new ApiError("Client introuvable.", 404);
+
+  await prisma.program.updateMany({ where: { clientId, status: "ACTIVE" }, data: { status: "ARCHIVED" } });
+
+  return prisma.program.create({
+    data: {
+      title: title?.trim() || "Programme personnalisé",
+      status: "ACTIVE",
+      clientId,
+      createdById: userId,
+      sessions: { create: [{ name: "Jour 1", position: 0 }] },
+    },
+    include: fullInclude,
+  });
+}
+
 // ===========================================================================
 // JOURS (ProgramSession)
 // ===========================================================================
