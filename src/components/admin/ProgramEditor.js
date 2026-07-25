@@ -19,6 +19,7 @@
 import { useEffect, useState } from "react";
 import { WEEKDAYS, WEEKDAY_LABELS } from "@/lib/dates";
 import ExerciseThumb from "@/components/ExerciseThumb";
+import ExercisePicker from "@/components/admin/ExercisePicker";
 import Icon from "@/components/Icon";
 
 async function api(path, method, body) {
@@ -36,6 +37,20 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
   const [program, setProgram] = useState(initialProgram);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false); // mode édition activé/désactivé
+  // Sélecteur d'exercices ouvert : { mode: "add", sessionId } ou { mode: "swap", itemId }.
+  const [pickerFor, setPickerFor] = useState(null);
+
+  // Ajoute (mode "add") ou remplace (mode "swap") l'exercice choisi dans le sélecteur.
+  async function handlePick(exerciseId) {
+    const target = pickerFor;
+    setPickerFor(null);
+    if (!target) return;
+    if (target.mode === "add") {
+      await mutate(() => api(`/api/program-sessions/${target.sessionId}/exercises`, "POST", { exerciseId }));
+    } else if (target.mode === "swap") {
+      await mutate(() => api(`/api/program-exercises/${target.itemId}`, "PATCH", { exerciseId }));
+    }
+  }
 
   // Exécute une mutation puis resynchronise l'état avec le programme renvoyé.
   async function mutate(fn) {
@@ -97,6 +112,7 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
               exercises={exercises}
               editing={editing}
               mutate={mutate}
+              openPicker={setPickerFor}
             />
           ))}
           {editing && (
@@ -109,6 +125,16 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
             </button>
           )}
         </div>
+      )}
+
+      {/* Sélecteur d'exercices visuel (silhouette + galerie d'images). */}
+      {pickerFor && (
+        <ExercisePicker
+          exercises={exercises}
+          onPick={handlePick}
+          onClose={() => setPickerFor(null)}
+          title={pickerFor.mode === "swap" ? "Remplacer l'exercice" : "Ajouter un exercice"}
+        />
       )}
     </div>
   );
@@ -177,7 +203,7 @@ function TemplateBar({ program, clientId, onApplied, onError }) {
 
 /* --- Un jour du programme ----------------------------------------------------------- */
 
-function SessionCard({ session, index, count, exercises, editing, mutate }) {
+function SessionCard({ session, index, count, exercises, editing, mutate, openPicker }) {
   const [name, setName] = useState(session.name);
 
   // Resynchronise le nom local si le programme a été rechargé (ex. réordonnancement).
@@ -245,22 +271,26 @@ function SessionCard({ session, index, count, exercises, editing, mutate }) {
               item={item}
               index={ei}
               count={session.exercises.length}
-              exercises={exercises}
               editing={editing}
               mutate={mutate}
+              openPicker={openPicker}
             />
           ))}
         </tbody>
       </table>
 
-      {editing && <AddExerciseRow sessionId={session.id} exercises={exercises} mutate={mutate} />}
+      {editing && (
+        <button className="btn btn-sm btn-primary mt" onClick={() => openPicker({ mode: "add", sessionId: session.id })}>
+          <Icon name="plus" /> Ajouter un exercice
+        </button>
+      )}
     </div>
   );
 }
 
 /* --- Une ligne d'exercice ------------------------------------------------------------ */
 
-function ExerciseRow({ item, index, count, exercises, editing, mutate }) {
+function ExerciseRow({ item, index, count, editing, mutate, openPicker }) {
   // Copie locale des champs éditables : enregistrés à la sortie du champ (blur)
   // uniquement s'ils ont changé, pour éviter les requêtes inutiles.
   const [form, setForm] = useState({
@@ -303,15 +333,18 @@ function ExerciseRow({ item, index, count, exercises, editing, mutate }) {
   return (
     <tr>
       <td>
-        {/* Échanger l'exercice : la liste complète de la bibliothèque. */}
-        <select
-          className="input"
-          style={{ maxWidth: 180 }}
-          value={item.exerciseId}
-          onChange={(e) => mutate(() => api(`/api/program-exercises/${item.id}`, "PATCH", { exerciseId: e.target.value }))}
+        {/* Échanger l'exercice : ouvre le sélecteur visuel (silhouette + images). */}
+        <button
+          type="button"
+          className="flex"
+          style={{ alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+          onClick={() => openPicker({ mode: "swap", itemId: item.id })}
+          title="Remplacer cet exercice"
         >
-          {exercises.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-        </select>
+          <ExerciseThumb exercise={item.exercise} size={30} />
+          <span style={{ fontWeight: 500 }}>{item.exercise.name}</span>
+          <Icon name="pencil" size={13} style={{ color: "var(--text-dim)" }} />
+        </button>
       </td>
       <td><input className="input" style={{ width: 58 }} type="number" min={1} value={form.sets} onChange={set("sets")} onBlur={saveField("sets")} /></td>
       <td><input className="input" style={{ width: 70 }} value={form.reps} onChange={set("reps")} onBlur={saveField("reps")} /></td>
@@ -329,24 +362,3 @@ function ExerciseRow({ item, index, count, exercises, editing, mutate }) {
   );
 }
 
-/* --- Ajout d'un exercice à un jour ---------------------------------------------------- */
-
-function AddExerciseRow({ sessionId, exercises, mutate }) {
-  const [exerciseId, setExerciseId] = useState("");
-
-  async function add() {
-    if (!exerciseId) return;
-    const done = await mutate(() => api(`/api/program-sessions/${sessionId}/exercises`, "POST", { exerciseId }));
-    if (done) setExerciseId("");
-  }
-
-  return (
-    <div className="flex mt" style={{ gap: 8 }}>
-      <select className="input" style={{ flex: 1 }} value={exerciseId} onChange={(e) => setExerciseId(e.target.value)}>
-        <option value="">Ajouter un exercice…</option>
-        {exercises.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-      </select>
-      <button className="btn btn-sm btn-primary" disabled={!exerciseId} onClick={add}><Icon name="plus" /> Ajouter</button>
-    </div>
-  );
-}

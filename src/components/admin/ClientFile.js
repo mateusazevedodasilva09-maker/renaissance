@@ -945,56 +945,24 @@ function AttendanceTab({ client, rate, onUpdate, onError }) {
 /* --- Programme : génération + affichage ------------------------------------------ */
 
 function ProgramCard({ client, exercises, activeProgram, onGenerated }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Objectif + niveau sportif du profil : ils construisent le programme
-  // automatiquement, sans que le coach ait à cliquer sur « Générer ».
-  const clientGoal = client.goals?.[0]?.goal || null;
-
-  async function regenerate() {
-    setLoading(true);
-    setError(null);
-    try {
-      await api("/api/programs", "POST", { clientId: client.id, auto: true });
-      onGenerated();
-    } catch (err) { console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // Programme 100 % construit par le coach (aucune génération automatique).
   return (
     <div className="card">
       <div className="flex-between wrap mb">
         <h3 style={{ margin: 0 }}><Icon name="dumbbell" /> Programme personnalisé</h3>
-        {clientGoal && (
-          <button className="btn btn-sm" disabled={loading} onClick={regenerate}>
-            {loading ? "Génération…" : "Regénérer"}
-          </button>
-        )}
       </div>
 
-      {!clientGoal && (
-        <div className="alert alert-error">
-          Ce client n&apos;a pas encore d&apos;objectif. Attribuez-lui-en un dans « Objectifs d&apos;entraînement » ci-dessus : son programme sera alors généré automatiquement.
-        </div>
-      )}
-      {error && <div className="alert alert-error">{error}</div>}
-
       {/* Sécurité : les blessures du bilan initial remontent ici pour que le
-          coach les ait sous les yeux au moment d'ajuster le programme. */}
+          coach les ait sous les yeux au moment de construire le programme. */}
       {client.injuries && (
         <div className="alert" style={{ border: "1px solid var(--amber)", marginBottom: 12 }}>
           <Icon name="warning" /> <strong>Blessures / zones sensibles :</strong> {client.injuries}
         </div>
       )}
 
-      {/* Édition manuelle : le brouillon généré s'ajuste ici (exercices, séries,
-          jours…) et peut être enregistré comme modèle ou remplacé par un modèle.
-          La `key` force la réinitialisation de l'éditeur quand le programme change
-          (régénération ou application d'un modèle). */}
+      {/* Construction manuelle : jours, exercices (via le sélecteur visuel),
+          séries/reps/repos, et modèles réutilisables. La `key` réinitialise
+          l'éditeur quand le programme change (création vierge, application d'un modèle). */}
       <ProgramEditor
         key={activeProgram?.id || "none"}
         initialProgram={activeProgram || null}
