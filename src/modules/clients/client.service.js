@@ -284,6 +284,9 @@ export async function updateClient(id, data) {
   for (const k of [
     "notes", "isActive", "gender", "lifestyle", "activityLevel", "sportLevel", "bodyType", "dietPreferences", "groupId",
     "injuries", "medicalNotes", "availability", "equipment", "experienceNote",
+    // Permet à l'admin de « redemander le remplissage » : remettre ce drapeau à
+    // false renvoie le client sur la page de remplissage des métriques (gating).
+    "onboardingMeasurementsDone",
   ]) {
     if (data[k] !== undefined) patch[k] = data[k] === "" ? null : data[k];
   }
@@ -302,15 +305,8 @@ export async function updateClient(id, data) {
 
   const updated = await prisma.client.update({ where: { id }, data: patch, include });
 
-  // Le programme dépend de l'objectif et du niveau sportif : dès que l'un change,
-  // on le régénère automatiquement (aucune action manuelle du coach).
-  if (goalIds !== undefined || data.sportLevel !== undefined) {
-    try {
-      const { regenerateClientProgram } = await import("@/modules/programs/program.service");
-      await regenerateClientProgram(id);
-    } catch (err) {
-      // Pas d'objectif (ou autre) : on n'empêche pas la mise à jour du client.
-    }
-  }
+  // NB : le programme n'est PLUS régénéré automatiquement ici. Il est construit
+  // à la main par le coach ; changer un objectif ne doit jamais écraser son
+  // travail. (La régénération auto effaçait le programme personnalisé.)
   return updated;
 }

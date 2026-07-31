@@ -6,14 +6,13 @@
  */
 import { listGoals } from "@/modules/sessions/schedule.service";
 import { listClients } from "@/modules/clients/client.service";
-import { getActiveProgramForGoal } from "@/modules/programs/program.service";
-import { listGenerators } from "@/modules/programs/generation/registry";
+import { getActiveProgramForGoal, listExercises } from "@/modules/programs/program.service";
 import ObjectiveManager from "@/components/admin/ObjectiveManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ObjectifsPage() {
-  const [goals, clients] = await Promise.all([listGoals(), listClients()]);
+  const [goals, clients, exercises] = await Promise.all([listGoals(), listClients(), listExercises()]);
 
   const objectives = await Promise.all(
     goals.map(async (g) => ({
@@ -30,7 +29,7 @@ export default async function ObjectifsPage() {
   return (
     <ObjectiveManager
       objectives={JSON.parse(JSON.stringify(objectives))}
-      generators={listGenerators()}
+      exercises={JSON.parse(JSON.stringify(exercises))}
     />
   );
 }

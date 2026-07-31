@@ -51,13 +51,29 @@ export default function AttentionList({ clients = [] }) {
               <div className="flex wrap" style={{ gap: 6, marginTop: 10 }}>
                 {c.reasons.map((r) => {
                   const s = REASON_STYLE[r.key] || { color: "var(--text-dim)", icon: "warning" };
-                  return (
+                  const label = (
+                    <>
+                      <Icon name={s.icon} size={13} /> {r.label}{r.count ? ` (${r.count})` : ""}
+                    </>
+                  );
+                  // Un motif « message » est cliquable : il ouvre directement
+                  // l'historique des messages de ce participant.
+                  return r.key === "message" ? (
+                    <Link
+                      key={r.key}
+                      href={`/admin/messages?client=${c.id}`}
+                      className="badge"
+                      style={{ borderColor: s.color, color: s.color, cursor: "pointer" }}
+                    >
+                      {label}
+                    </Link>
+                  ) : (
                     <span
                       key={r.key}
                       className="badge"
                       style={{ borderColor: s.color, color: s.color }}
                     >
-                      <Icon name={s.icon} size={13} /> {r.label}{r.count ? ` (${r.count})` : ""}
+                      {label}
                     </span>
                   );
                 })}

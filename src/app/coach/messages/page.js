@@ -23,5 +23,10 @@ export default async function CoachMessagesPage({ searchParams }) {
 
   // Toujours borné à un coach précis dans l'espace coach (scope "COACH").
   const feedbacks = await listFeedbackForStaff({ role: "COACH", userId: targetCoachId });
-  return <FeedbackInbox initialFeedbacks={JSON.parse(JSON.stringify(feedbacks))} />;
+  return (
+    <FeedbackInbox
+      initialFeedbacks={JSON.parse(JSON.stringify(feedbacks))}
+      focusClientId={searchParams?.client || null}
+    />
+  );
 }

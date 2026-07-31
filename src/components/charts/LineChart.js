@@ -13,11 +13,14 @@
  * Au survol, une infobulle suit le point le plus proche du curseur et affiche
  * sa valeur exacte en ordonnée, avec un repère vertical.
  */
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 export default function LineChart({ points = [], color = "var(--accent)", unit = "", height = 190, target = null, targetLabel = "Objectif", scale = 1 }) {
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null);
+  // Identifiant unique du dégradé : plusieurs graphes peuvent coexister sur une
+  // même page sans que leurs `<defs>` n'entrent en collision.
+  const gradId = `lc-fill-${useId().replace(/:/g, "")}`;
 
   const data = points.filter((p) => p.value !== null && p.value !== undefined);
   if (data.length === 0) {
@@ -108,6 +111,15 @@ export default function LineChart({ points = [], color = "var(--accent)", unit =
       onMouseMove={onMove}
       onMouseLeave={() => setHover(null)}
     >
+      {/* Dégradé vertical du voile sous la courbe : plus dense près de la ligne,
+          fondu vers le bas — un rendu plus moderne qu'un aplat uniforme. */}
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+
       {/* lignes de repère + libellés de l'axe Y (dans la gouttière gauche) */}
       {[min, (min + max) / 2, max].map((v, i) => (
         <g key={i}>
@@ -128,12 +140,13 @@ export default function LineChart({ points = [], color = "var(--accent)", unit =
         </g>
       )}
 
-      <path d={area} fill={color} fillOpacity="0.07" stroke="none" />
+      <path d={area} fill={`url(#${gradId})`} stroke="none" />
       <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {data.map((p, i) => (
         <g key={i}>
-          <circle cx={x(i)} cy={y(p.value)} r={hover === i ? 5.5 : 4} fill={color} />
+          {/* Point à anneau clair : se détache proprement de la courbe et du voile. */}
+          <circle cx={x(i)} cy={y(p.value)} r={hover === i ? 5.5 : 4} fill={color} stroke="var(--panel)" strokeWidth="1.5" />
           {p.pr && (
             <text x={x(i)} y={y(p.value) - 9} fontSize="13" textAnchor="middle" role="img" aria-label="Record personnel">
               ★

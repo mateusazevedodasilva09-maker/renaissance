@@ -33,7 +33,7 @@ async function api(path, method, body) {
   return json.data;
 }
 
-export default function ProgramEditor({ initialProgram, exercises, clientId, onProgramReplaced }) {
+export default function ProgramEditor({ initialProgram, exercises, clientId, goalId, onProgramReplaced }) {
   const [program, setProgram] = useState(initialProgram);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false); // mode édition activé/désactivé
@@ -67,7 +67,9 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
   // Crée un programme vierge (aucun objectif requis) puis passe directement en
   // mode édition pour construire les jours et exercices à la main.
   async function createBlank() {
-    const created = await mutate(() => api("/api/programs", "POST", { clientId, blank: true }));
+    // Cible : un client (programme personnel) OU un objectif (programme partagé).
+    const payload = goalId ? { goalId, blank: true } : { clientId, blank: true };
+    const created = await mutate(() => api("/api/programs", "POST", payload));
     if (created) setEditing(true);
   }
 
@@ -102,7 +104,9 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, onP
       </div>
 
       {program && (
-        <div className="grid grid-2">
+        // En édition, chaque jour prend toute la largeur (tableau à 7 colonnes) ;
+        // en lecture, deux jours par ligne pour une vue compacte.
+        <div className={editing ? "grid" : "grid grid-2"}>
           {program.sessions.map((session, si) => (
             <SessionCard
               key={session.id}
@@ -188,7 +192,9 @@ function TemplateBar({ program, clientId, onApplied, onError }) {
           <Icon name="save" /> {saving ? "Enregistrement…" : "Enregistrer comme modèle"}
         </button>
       )}
-      {templates.length > 0 && (
+      {/* « Appliquer un modèle » remplace le programme d'un CLIENT : on ne
+          l'affiche pas pour un programme d'objectif (pas de client cible). */}
+      {clientId && templates.length > 0 && (
         <select className="input" style={{ width: "auto" }} value="" onChange={(e) => applyTemplate(e.target.value)}>
           <option value="">Appliquer un modèle…</option>
           {templates.map((t) => (
@@ -257,27 +263,32 @@ function SessionCard({ session, index, count, exercises, editing, mutate, openPi
         )}
       </div>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Exercice</th><th>Séries</th><th>Reps</th><th>Repos</th>
-            {editing && <><th>Tempo</th><th>Note</th><th></th></>}
-          </tr>
-        </thead>
-        <tbody>
-          {session.exercises.map((item, ei) => (
-            <ExerciseRow
-              key={item.id}
-              item={item}
-              index={ei}
-              count={session.exercises.length}
-              editing={editing}
-              mutate={mutate}
-              openPicker={openPicker}
-            />
-          ))}
-        </tbody>
-      </table>
+      {/* Le tableau peut être large (surtout en édition, 7 colonnes) : on le
+          rend défilable horizontalement pour qu'il ne casse pas la mise en page
+          dans une colonne étroite (grille à 2 colonnes de la fiche). */}
+      <div style={{ overflowX: "auto" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Exercice</th><th>Séries</th><th>Reps</th><th>Repos</th>
+              {editing && <><th>Tempo</th><th>Note</th><th></th></>}
+            </tr>
+          </thead>
+          <tbody>
+            {session.exercises.map((item, ei) => (
+              <ExerciseRow
+                key={item.id}
+                item={item}
+                index={ei}
+                count={session.exercises.length}
+                editing={editing}
+                mutate={mutate}
+                openPicker={openPicker}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {editing && (
         <button className="btn btn-sm btn-primary mt" onClick={() => openPicker({ mode: "add", sessionId: session.id })}>

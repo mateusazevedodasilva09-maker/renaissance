@@ -3,37 +3,25 @@
 /**
  * « Objectif = groupe = programme ».
  * Pour chaque objectif : la liste des clients qui le partagent (le groupe) et
- * UN programme unique généré pour l'objectif. Le programme devient visible dans
- * l'espace de tous les clients de l'objectif (sauf ceux ayant un programme
- * personnel, qui prime).
+ * UN programme unique, désormais CONSTRUIT À LA MAIN par l'admin (plus de
+ * génération automatique). Les coachs peuvent le modifier librement via le même
+ * éditeur. Le programme de l'objectif est visible dans l'espace de tous ses
+ * clients (un programme personnel reste prioritaire).
  */
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import ExerciseThumb from "@/components/ExerciseThumb";
-import { mapGoalToGenerator } from "@/lib/goalMap";
+import ProgramEditor from "@/components/admin/ProgramEditor";
 
-async function api(path, method, body) {
-  const res = await fetch(path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || "Erreur");
-  return json.data;
-}
-
-export default function ObjectiveManager({ objectives, generators }) {
+export default function ObjectiveManager({ objectives, exercises = [] }) {
   return (
     <div>
       <div className="page-header">
         <div>
           <h1>Objectifs & programmes</h1>
           <div className="subtitle">
-            Un objectif regroupe les clients qui le partagent et porte un programme unique.
-            Le programme d&apos;un objectif est visible par tous ses clients (un programme personnel reste prioritaire).
+            Chaque objectif porte un programme construit à la main. Il est visible par tous ses clients
+            (un programme personnel reste prioritaire). Les coachs peuvent le modifier librement.
           </div>
         </div>
       </div>
@@ -42,42 +30,18 @@ export default function ObjectiveManager({ objectives, generators }) {
         <div className="card"><p className="muted">Aucun objectif défini. Créez-en dans « Séances &amp; planning ».</p></div>
       )}
 
-      <div className="grid grid-2">
+      <div className="grid">
         {objectives.map((o) => (
-          <ObjectiveCard key={o.id} objective={o} generators={generators} />
+          <ObjectiveCard key={o.id} objective={o} exercises={exercises} />
         ))}
       </div>
     </div>
   );
 }
 
-function ObjectiveCard({ objective, generators }) {
+function ObjectiveCard({ objective, exercises }) {
   const router = useRouter();
-  const [generatorKey, setGeneratorKey] = useState(generators[0]?.key || "");
-  const [params, setParams] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const generator = generators.find((g) => g.key === generatorKey);
   const program = objective.program;
-  // L'objectif pilote la génération : le coach ne saisit que le niveau / les jours.
-  const mappedGoal = mapGoalToGenerator(objective.label);
-  const coachParams = (generator?.paramsSchema || []).filter((f) => f.name !== "goal");
-
-  async function generate(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      const finalParams = { ...params, goal: mappedGoal };
-      await api("/api/programs", "POST", { goalId: objective.id, generatorKey, params: finalParams });
-      router.refresh();
-    } catch (err) { console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="card">
@@ -98,75 +62,18 @@ function ObjectiveCard({ objective, generators }) {
         </div>
       )}
 
-      {/* Générateur du programme de l'objectif : l'objectif est déjà connu,
-          le coach ne renseigne que le niveau / le nombre de jours. */}
-      <form onSubmit={generate} className="flex wrap mt" style={{ alignItems: "flex-end" }}>
-        {coachParams.map((f) => (
-          <div key={f.name} className="field" style={{ margin: 0 }}>
-            <label className="small">{f.label}</label>
-            <input
-              className="input"
-              style={{ width: 110 }}
-              type="number"
-              min={f.min}
-              max={f.max}
-              value={params[f.name] ?? f.default ?? ""}
-              onChange={(e) => setParams({ ...params, [f.name]: e.target.value })}
-            />
-          </div>
-        ))}
-        {generators.length > 1 && (
-          <div className="field" style={{ margin: 0 }}>
-            <label className="small">Stratégie</label>
-            <select className="input" style={{ width: "auto" }} value={generatorKey} onChange={(e) => setGeneratorKey(e.target.value)}>
-              {generators.map((g) => (<option key={g.key} value={g.key}>{g.label}</option>))}
-            </select>
-          </div>
-        )}
-        <button className="btn btn-primary btn-sm" disabled={loading}>
-          {loading ? "Génération…" : program ? "Regénérer" : "Générer le programme"}
-        </button>
-      </form>
-      {error && <div className="alert alert-error mt" onClick={() => setError(null)}>{error}</div>}
-
-      {/* Programme actif de l'objectif. */}
-      {program ? (
-        <div className="mt">
-          <div className="flex-between mb">
-            <strong>{program.title}</strong>
-            <span className="badge"><span className="dot" style={{ background: "var(--green)" }} /> Actif — visible par le groupe</span>
-          </div>
-          {program.sessions.map((s) => (
-            <div key={s.id} className="card" style={{ background: "var(--bg-soft)", marginBottom: 8 }}>
-              <h4 style={{ marginBottom: 8 }}>{s.name}</h4>
-              {/* Conteneur défilable : évite que le tableau déborde et casse la
-                  mise en page de la carte étroite (grille 2 colonnes). */}
-              <div style={{ overflowX: "auto" }}>
-                <table className="table">
-                  <thead><tr><th>Exercice</th><th>Séries</th><th>Reps</th><th>Repos</th></tr></thead>
-                  <tbody>
-                    {s.exercises.map((ex) => (
-                      <tr key={ex.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <ExerciseThumb exercise={ex.exercise} size={30} />
-                            {ex.exercise.name}
-                          </div>
-                        </td>
-                        <td>{ex.sets}</td>
-                        <td>{ex.reps}</td>
-                        <td>{ex.restSec ? `${ex.restSec}s` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="muted small mt">Aucun programme pour cet objectif. Générez-en un ci-dessus.</p>
-      )}
+      {/* Programme de l'objectif : construction manuelle (jours + exercices via
+          la silhouette), exactement comme la fiche client. Une création vierge
+          ou l'application d'un modèle réinitialise l'éditeur. */}
+      <div className="mt" style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+        <ProgramEditor
+          key={program?.id || `blank-${objective.id}`}
+          initialProgram={program || null}
+          exercises={exercises}
+          goalId={objective.id}
+          onProgramReplaced={() => router.refresh()}
+        />
+      </div>
     </div>
   );
 }

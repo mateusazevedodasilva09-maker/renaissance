@@ -8,8 +8,13 @@ import FeedbackInbox from "@/components/admin/FeedbackInbox";
 
 export const dynamic = "force-dynamic";
 
-export default async function MessagesPage() {
+export default async function MessagesPage({ searchParams }) {
   const session = await getSession();
   const feedbacks = await listFeedbackForStaff({ role: session.role, userId: session.userId });
-  return <FeedbackInbox initialFeedbacks={JSON.parse(JSON.stringify(feedbacks))} />;
+  return (
+    <FeedbackInbox
+      initialFeedbacks={JSON.parse(JSON.stringify(feedbacks))}
+      focusClientId={searchParams?.client || null}
+    />
+  );
 }

@@ -40,7 +40,8 @@
   /* — Statuts (désaturés, cohérents avec la base chaude) — */
   --green: #2f8f5b;
   --amber: #c47f1a;
-  --blue: #3266cf;
+  /* « marin » remplacé par du noir/encre (reste lisible sur fond crème). */
+  --blue: #1c1917;
   --red: #cc3b2c;
   --violet: #6f57e0;
 
@@ -93,7 +94,8 @@
 
   --green: #3fc47e;
   --amber: #eaa63f;
-  --blue: #6791ef;
+  /* « marin » → équivalent sombre : encre claire, lisible sur nuit chaude. */
+  --blue: #ece7de;
   --red: #f0685c;
   --violet: #9683f7;
 
@@ -632,6 +634,30 @@ textarea.input { resize: vertical; min-height: 84px; }
 }
 .skeleton-line { border-radius: 6px; }
 @keyframes skeleton { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+/* --- Messagerie : liste des participants + historique complet ---------------- */
+.messages-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.msg-participant {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.msg-participant:hover { background: var(--hover-row); }
+.msg-participant + .msg-participant { margin-top: 2px; }
+@media (max-width: 820px) {
+  .messages-layout { grid-template-columns: 1fr; }
+}
 
 /* Notification staff : badge « inscriptions à valider » + toast à l'arrivée. */
 .notif-badge {

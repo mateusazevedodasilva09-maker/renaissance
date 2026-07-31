@@ -1,23 +1,21 @@
 /**
- * Fiche client — gestion de l'espace client : objectifs, programmes
- * (génération via le moteur), suivi hebdomadaire.
+ * Fiche client — gestion de l'espace client : objectifs, programme (construit à
+ * la main par le coach), suivi hebdomadaire.
  * Un coach ne peut ouvrir que les fiches des membres de ses groupes.
  */
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getClient } from "@/modules/clients/client.service";
 import { listGoals, listSessionTypes } from "@/modules/sessions/schedule.service";
-import { listExercises, ensureClientProgram } from "@/modules/programs/program.service";
+import { listExercises } from "@/modules/programs/program.service";
 import { listGenerators } from "@/modules/programs/generation/registry";
 import ClientFile from "@/components/admin/ClientFile";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientPage({ params }) {
-  // Génère automatiquement le programme s'il manque (objectif + niveau du profil),
-  // avant de charger la fiche : le coach n'a rien à générer à la main.
-  await ensureClientProgram(params.id);
-
+  // Le programme est construit à la main par le coach : aucune génération ni
+  // pré-requête ici (chargement plus rapide, tout se fait en parallèle).
   const [session, client, goals, exercises, sessionTypes] = await Promise.all([
     getSession(),
     getClient(params.id),

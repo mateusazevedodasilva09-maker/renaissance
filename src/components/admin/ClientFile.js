@@ -71,6 +71,19 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     }
   }
 
+  // Redemander le remplissage des métriques : remet le client sur la page de
+  // remplissage (gating). Utile si le prospect a validé un formulaire incomplet
+  // — on lui renvoie une demande sans toucher au schéma.
+  async function reRequestMetrics() {
+    if (!window.confirm("Renvoyer une demande de remplissage des métriques ? Le client repassera par la page de remplissage avant d'accéder à son espace.")) return;
+    try {
+      const updated = await api(`/api/clients/${client.id}`, "PATCH", { onboardingMeasurementsDone: false });
+      setClient({ ...client, onboardingMeasurementsDone: updated.onboardingMeasurementsDone });
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -114,6 +127,11 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
           {!client.enrolled && (
             <button className="btn btn-primary" onClick={enroll} title="Donner au client l'accès à son dashboard">
               <Icon name="check" /> Inscrire (donner accès)
+            </button>
+          )}
+          {!client.enrolled && client.onboardingMeasurementsDone && (
+            <button className="btn" onClick={reRequestMetrics} title="Renvoyer le client sur la page de remplissage des métriques">
+              <Icon name="warning" /> Redemander le remplissage
             </button>
           )}
           <Link href={`/admin/clients/${client.id}/apercu`} className="btn">

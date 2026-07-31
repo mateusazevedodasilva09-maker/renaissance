@@ -51,6 +51,30 @@ export async function createBlankProgram(clientId, { title } = {}, { userId = nu
   });
 }
 
+/**
+ * Crée un programme VIERGE pour un OBJECTIF (et non un client), construit à la
+ * main par l'admin. Devient le programme actif de l'objectif — visible par tous
+ * les clients qui le partagent (sauf ceux ayant un programme personnel). Les
+ * coachs peuvent ensuite le modifier librement via le même éditeur.
+ */
+export async function createBlankProgramForGoal(goalId, { title } = {}, { userId = null } = {}) {
+  const goal = await prisma.goal.findUnique({ where: { id: goalId } });
+  if (!goal) throw new ApiError("Objectif introuvable.", 404);
+
+  await prisma.program.updateMany({ where: { goalId, status: "ACTIVE" }, data: { status: "ARCHIVED" } });
+
+  return prisma.program.create({
+    data: {
+      title: title?.trim() || `Programme — ${goal.label}`,
+      status: "ACTIVE",
+      goalId,
+      createdById: userId,
+      sessions: { create: [{ name: "Jour 1", position: 0 }] },
+    },
+    include: fullInclude,
+  });
+}
+
 // ===========================================================================
 // JOURS (ProgramSession)
 // ===========================================================================

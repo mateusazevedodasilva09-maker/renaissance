@@ -35,12 +35,17 @@ export function addDays(date, n) {
   return d;
 }
 
+// Fuseau de référence de l'app. Sans lui, le rendu côté serveur (Vercel = UTC)
+// décale l'affichage d'un jour pour les dates proches de minuit.
+export const APP_TZ = "Europe/Paris";
+
 export function formatDate(date) {
   if (!date) return "—";
   return new Date(date).toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: APP_TZ,
   });
 }
 
@@ -52,5 +57,6 @@ export function formatDateTime(date) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: APP_TZ,
   });
 }
