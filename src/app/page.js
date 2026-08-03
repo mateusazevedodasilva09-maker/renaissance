@@ -16,7 +16,10 @@ export default function HomePage() {
           </p>
           <p className="muted">Coaching sportif en groupe — reprenez le contrôle de votre forme.</p>
           <div className="mt" style={{ display: "grid", gap: 10 }}>
-            <Link className="btn btn-primary" href="/rendez-vous">
+            <Link className="btn btn-primary" href="/inscription">
+              Créer mon compte
+            </Link>
+            <Link className="btn" href="/rendez-vous">
               Demander un appel découverte
             </Link>
             <Link className="btn" href="/connexion">

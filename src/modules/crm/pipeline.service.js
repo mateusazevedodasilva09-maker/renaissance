@@ -59,6 +59,31 @@ export function getStatusByKey(key) {
   return prisma.pipelineStatus.findUnique({ where: { key } });
 }
 
+/**
+ * Garantit l'existence des statuts propres au tunnel d'auto-inscription depuis
+ * l'app. Idempotent : crée « prospect appli » et « remplissage métriques » s'ils
+ * n'existent pas encore, sans migration ni doublon. Retourne le statut d'entrée
+ * (« prospect appli »).
+ */
+export async function ensureAppStage() {
+  const stages = [
+    { key: "prospect_appli", label: "Prospect appli", color: "#6366f1" },
+    { key: "remplissage_metriques", label: "Remplissage métriques", color: "#0ea5e9" },
+  ];
+  let entry = null;
+  for (const s of stages) {
+    let status = await prisma.pipelineStatus.findUnique({ where: { key: s.key } });
+    if (!status) {
+      const max = await prisma.pipelineStatus.aggregate({ _max: { position: true } });
+      status = await prisma.pipelineStatus.create({
+        data: { key: s.key, label: s.label, color: s.color, position: (max._max.position ?? 0) + 1 },
+      });
+    }
+    if (s.key === "prospect_appli") entry = status;
+  }
+  return entry;
+}
+
 /** Statut par défaut d'un nouveau prospect (première colonne non terminale). */
 export async function getDefaultStatus() {
   const status = await prisma.pipelineStatus.findFirst({

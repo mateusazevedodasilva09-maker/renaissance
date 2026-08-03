@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { startOfWeek } from "@/lib/dates";
 import { createUser } from "@/modules/auth/auth.service";
-import { getWonStatus, getStatusByKey } from "@/modules/crm/pipeline.service";
+import { getWonStatus, getStatusByKey, ensureAppStage } from "@/modules/crm/pipeline.service";
 
 const include = {
   user: { select: { id: true, username: true, email: true, firstName: true, lastName: true, phone: true, isActive: true } },
@@ -158,9 +158,99 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
 }
 
 /**
+ * Auto-inscription depuis l'app (le prospect crée lui-même son compte à la
+ * première page du tunnel). Crée en une transaction cohérente :
+ *   1. un Prospect au statut « Prospect appli » (source FORM) — historique CRM ;
+ *   2. le compte utilisateur CLIENT (mot de passe choisi par le prospect) ;
+ *   3. la fiche Client reliée au prospect, `enrolled = false` et `paid = false`
+ *      → il n'a accès qu'au tunnel d'onboarding, pas au dashboard.
+ * Retourne l'utilisateur (pour ouvrir la session) et le client.
+ *
+ * Sécurité : aucune donnée sensible n'est acceptée ici (pas de rôle, pas de
+ * `enrolled`/`paid`/`level`) — seuls les champs d'identité passent.
+ */
+export async function registerFromApp({ firstName, lastName, email, phone, password }) {
+  if (!firstName?.trim() || !lastName?.trim()) throw new ApiError("Le prénom et le nom sont requis.");
+  if (!email?.trim()) throw new ApiError("L'e-mail est requis.");
+  if (!phone?.trim()) throw new ApiError("Le téléphone est requis.");
+  if (!password || password.length < 8) throw new ApiError("Mot de passe : 8 caractères minimum.");
+
+  const cleanEmail = email.trim().toLowerCase();
+  const emailTaken = await prisma.user.findUnique({ where: { email: cleanEmail } });
+  if (emailTaken) throw new ApiError("Un compte utilise déjà cette adresse e-mail.");
+
+  // Statut d'entrée du tunnel (créé automatiquement s'il n'existe pas encore).
+  const entry = await ensureAppStage();
+
+  const prospect = await prisma.prospect.create({
+    data: {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: cleanEmail,
+      phone: phone.trim(),
+      source: "FORM",
+      statusId: entry.id,
+    },
+  });
+
+  const user = await createUser({
+    email: cleanEmail,
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    phone: phone.trim(),
+    role: "CLIENT",
+    password,
+  });
+
+  const client = await prisma.client.create({
+    data: {
+      userId: user.id,
+      prospectId: prospect.id,
+      enrolled: false,
+      paid: false,
+      onboardingMeasurementsDone: false,
+    },
+    include,
+  });
+
+  await prisma.contactEvent.create({
+    data: {
+      prospectId: prospect.id,
+      type: "SYSTEM",
+      content: "Auto-inscription depuis l'app (statut : Prospect appli).",
+      createdById: null,
+    },
+  });
+
+  return { user, client };
+}
+
+/**
+ * Mise à jour de SA PROPRE fiche par le client (tunnel d'onboarding).
+ * Allowlist STRICTE : seuls les champs de profil / bilan initial sont
+ * modifiables. Jamais `enrolled`, `paid`, `level`, `groupId`, `isActive`,
+ * ni aucune valeur forcée (manual*, cibles nutrition) — ceux-là restent
+ * l'apanage du coach/admin. Ferme la porte à toute élévation de privilège.
+ */
+export async function updateOwnClientProfile(clientId, data) {
+  const patch = {};
+  for (const k of [
+    "gender", "lifestyle", "activityLevel", "sportLevel", "bodyType", "dietPreferences",
+    "injuries", "medicalNotes", "availability", "equipment", "experienceNote",
+  ]) {
+    if (data[k] !== undefined) patch[k] = data[k] === "" ? null : String(data[k]);
+  }
+  for (const k of ["age", "heightCm"]) {
+    if (data[k] !== undefined) patch[k] = data[k] === "" || data[k] === null ? null : Number(data[k]);
+  }
+  if (Object.keys(patch).length === 0) return getClient(clientId);
+  return prisma.client.update({ where: { id: clientId }, data: patch, include });
+}
+
+/**
  * Inscription définitive : l'admin donne au client l'accès à son dashboard.
  * Passe `enrolled = true` et bascule le prospect lié en « Payé / Inscrit ».
- * Idempotent (ne refait rien si déjà inscrit).
+ * Idempotent (ne refait rien si déjà inscrit). Conditionné au paiement validé.
  */
 export async function enrollClient(clientId, { userId = null } = {}) {
   const client = await prisma.client.findUnique({
@@ -169,6 +259,7 @@ export async function enrollClient(clientId, { userId = null } = {}) {
   });
   if (!client) throw new ApiError("Client introuvable.", 404);
   if (client.enrolled) return getClient(clientId);
+  if (!client.paid) throw new ApiError("Le paiement doit être validé avant d'inscrire le client.");
 
   const won = await getWonStatus();
   const ops = [
@@ -287,6 +378,8 @@ export async function updateClient(id, data) {
     // Permet à l'admin de « redemander le remplissage » : remettre ce drapeau à
     // false renvoie le client sur la page de remplissage des métriques (gating).
     "onboardingMeasurementsDone",
+    // Validation du paiement par le coach (débloque l'inscription au dashboard).
+    "paid",
   ]) {
     if (data[k] !== undefined) patch[k] = data[k] === "" ? null : data[k];
   }

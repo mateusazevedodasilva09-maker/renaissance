@@ -3,6 +3,7 @@
 /** Page de connexion (admin, coach, client). */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import GradientBackground from "@/components/GradientBackground";
 import Logo from "@/components/Logo";
 
@@ -70,6 +71,9 @@ export default function ConnexionPage() {
               {state.loading ? "Connexion…" : "Se connecter"}
             </button>
           </form>
+          <p className="muted" style={{ textAlign: "center", marginTop: 16, fontSize: 13 }}>
+            Pas encore de compte ? <Link href="/inscription">S'inscrire</Link>
+          </p>
         </div>
       </div>
     </div>

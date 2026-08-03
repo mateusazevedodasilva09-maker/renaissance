@@ -6,6 +6,7 @@
 import prisma from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { addContactEvent } from "@/modules/crm/prospect.service";
+import { createTask } from "@/modules/agenda/task.service";
 
 const include = {
   prospect: { include: { status: true } },
@@ -25,6 +26,80 @@ export function listAppointments({ status, from, to } = {}) {
     include,
     orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }],
   });
+}
+
+/**
+ * Prochain appel réservé par un client (via son prospect d'origine), pour
+ * l'afficher dans son tunnel d'onboarding. Null si aucun. Ne renvoie que les
+ * rendez-vous non clôturés (REQUESTED / SCHEDULED).
+ */
+export async function getUpcomingAppointmentForClient(clientId) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { prospectId: true },
+  });
+  if (!client?.prospectId) return null;
+  return prisma.appointment.findFirst({
+    where: { prospectId: client.prospectId, status: { in: ["REQUESTED", "SCHEDULED"] } },
+    orderBy: { scheduledAt: "asc" },
+  });
+}
+
+/**
+ * Réservation d'un appel par le CLIENT lui-même (tunnel d'onboarding).
+ * Crée le rendez-vous déjà planifié (SCHEDULED) sur le créneau choisi — il
+ * apparaît donc dans le calendrier admin — et génère une tâche pour le staff
+ * (coach du groupe si connu, sinon non assignée) pour préparer l'appel.
+ * `clientId` provient de la session : le client ne peut réserver que pour lui.
+ */
+export async function bookOwnAppointment(clientId, { scheduledAt }) {
+  if (!scheduledAt) throw new ApiError("Un créneau est requis.");
+  const when = new Date(scheduledAt);
+  if (Number.isNaN(when.getTime())) throw new ApiError("Créneau invalide.");
+  if (when.getTime() < Date.now()) throw new ApiError("Le créneau doit être dans le futur.");
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      user: { select: { firstName: true, lastName: true } },
+      prospect: { select: { id: true } },
+      group: { select: { coachId: true } },
+    },
+  });
+  if (!client) throw new ApiError("Client introuvable.", 404);
+
+  const name = `${client.user.firstName} ${client.user.lastName}`.trim();
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      title: `Appel découverte — ${name}`,
+      scheduledAt: when,
+      status: "SCHEDULED",
+      prospectId: client.prospect?.id || null,
+    },
+    include,
+  });
+
+  // Tâche pour le staff : préparer / honorer l'appel.
+  await createTask({
+    title: `Appel avec ${name}`,
+    description: "Appel découverte réservé par le client depuis l'app.",
+    dueAt: when,
+    assigneeId: client.group?.coachId || null,
+    category: "Inscriptions",
+    priority: "HIGH",
+    createdById: null,
+  });
+
+  // Historique CRM.
+  if (client.prospect?.id) {
+    await addContactEvent(
+      client.prospect.id,
+      { type: "SYSTEM", content: `Appel réservé par le client le ${when.toLocaleString("fr-FR")}.` },
+      {}
+    );
+  }
+  return appointment;
 }
 
 export async function updateAppointment(id, { scheduledAt, durationMin, status, notes, title }, { userId } = {}) {

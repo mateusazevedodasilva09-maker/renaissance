@@ -258,6 +258,11 @@ model Client {
   // `enrolled = true` → accès complet à son espace.
   enrolled Boolean @default(false)
 
+  // Validation du paiement par le coach (aucune intégration de paiement : le
+  // coach coche manuellement une fois le règlement reçu). L'inscription
+  // (`enrolled = true`) est conditionnée à `paid = true`.
+  paid Boolean @default(false)
+
   // --- Objectif chiffré ---------------------------------------------------
   objectiveDeadline DateTime? // échéance
   startWeightKg     Float? // poids de départ

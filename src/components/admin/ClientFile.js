@@ -84,6 +84,18 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     }
   }
 
+  // Valider (ou annuler) le paiement du client. Aucune intégration de paiement :
+  // le coach coche manuellement une fois le règlement reçu. Le paiement validé
+  // débloque le bouton « Inscrire » (enrollClient exige paid = true).
+  async function togglePaid() {
+    try {
+      const updated = await api(`/api/clients/${client.id}`, "PATCH", { paid: !client.paid });
+      setClient({ ...client, paid: updated.paid });
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -118,6 +130,18 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
                 ? <><Icon name="check" /> Inscrit — accès dashboard</>
                 : <><Icon name="warning" /> Accès dashboard bloqué</>}
             </span>
+            {" · "}
+            <span
+              className="badge"
+              title="Paiement (validé manuellement par le coach). Requis avant l'inscription."
+              style={client.paid
+                ? { borderColor: "var(--green)", color: "var(--green)" }
+                : { borderColor: "var(--amber)", color: "var(--amber)" }}
+            >
+              {client.paid
+                ? <><Icon name="check" /> Paiement validé</>
+                : <><Icon name="warning" /> Paiement en attente</>}
+            </span>
             {client.prospect && (
               <> · <Link href={`/admin/crm/${client.prospect.id}`} style={{ color: "var(--accent)" }}>historique CRM →</Link></>
             )}
@@ -125,8 +149,24 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
         </div>
         <div className="flex wrap">
           {!client.enrolled && (
-            <button className="btn btn-primary" onClick={enroll} title="Donner au client l'accès à son dashboard">
+            <button
+              className={`btn ${client.paid ? "btn-primary" : ""}`}
+              onClick={enroll}
+              disabled={!client.paid}
+              title={client.paid
+                ? "Donner au client l'accès à son dashboard"
+                : "Validez d'abord le paiement pour pouvoir inscrire le client"}
+            >
               <Icon name="check" /> Inscrire (donner accès)
+            </button>
+          )}
+          {!client.enrolled && (
+            <button
+              className={`btn ${client.paid ? "" : "btn-primary"}`}
+              onClick={togglePaid}
+              title="Valider / annuler le paiement (manuel)"
+            >
+              <Icon name={client.paid ? "warning" : "check"} /> {client.paid ? "Annuler le paiement" : "Valider le paiement"}
             </button>
           )}
           {!client.enrolled && client.onboardingMeasurementsDone && (
@@ -136,6 +176,9 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
           )}
           <Link href={`/admin/clients/${client.id}/apercu`} className="btn">
             <Icon name="eye" /> Voir comme le client
+          </Link>
+          <Link href={`/admin/clients/${client.id}/apercu-onboarding`} className="btn">
+            <Icon name="eye" /> Aperçu onboarding
           </Link>
           <button className="btn" onClick={toggleActive}>
             {client.isActive ? "Désactiver l'espace" : "Réactiver l'espace"}
