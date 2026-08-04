@@ -17,11 +17,24 @@ import { useRouter } from "next/navigation";
 import { WEEKDAYS, WEEKDAY_LABELS } from "@/lib/dates";
 import Icon from "@/components/Icon";
 
+async function api(path, method, body) {
+  const res = await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Erreur");
+  return json.data;
+}
+
 export default function CoachDashboard({ dashboard, coaches = [], selectedCoachId, isAdmin = false }) {
   const router = useRouter();
   const { groups = [], slots = [] } = dashboard || {};
   const [selectedSlotId, setSelectedSlotId] = useState(slots[0]?.id || null);
   const [openClientId, setOpenClientId] = useState(null);
+  const [recording, setRecording] = useState(false); // séance en cours de notation
+  const [savedMsg, setSavedMsg] = useState(null);
 
   const selectedSlot = slots.find((s) => s.id === selectedSlotId) || null;
 
@@ -47,7 +60,15 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
   function selectSlot(id) {
     setSelectedSlotId(id);
     setOpenClientId(null);
+    setRecording(false);
+    setSavedMsg(null);
   }
+
+  // Tous les participants du coaching sélectionné, à plat (nom + niveau + groupe).
+  const attendingClients = useMemo(
+    () => attendingGroups.flatMap((g) => g.clients.map((c) => ({ ...c, groupName: g.name }))),
+    [attendingGroups]
+  );
 
   return (
     <div>
@@ -118,9 +139,26 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
                   <Icon name="users" /> {WEEKDAY_LABELS[selectedSlot.weekday]} · {selectedSlot.sessionType?.name}
                   <span className="muted small"> · {selectedSlot.startTime}–{selectedSlot.endTime}</span>
                 </h3>
+                {!recording && attendingClients.length > 0 && (
+                  <button className="btn btn-sm btn-primary" onClick={() => { setSavedMsg(null); setRecording(true); }}>
+                    <Icon name="check" /> Commencer la séance
+                  </button>
+                )}
               </div>
 
-              {attendingGroups.length === 0 ? (
+              {savedMsg && <div className="alert alert-success" onClick={() => setSavedMsg(null)}>{savedMsg}</div>}
+
+              {recording ? (
+                <SessionRecorder
+                  slot={selectedSlot}
+                  clients={attendingClients}
+                  onCancel={() => setRecording(false)}
+                  onSaved={(n) => {
+                    setRecording(false);
+                    setSavedMsg(`✓ Séance enregistrée pour ${n} participant(s).`);
+                  }}
+                />
+              ) : attendingGroups.length === 0 ? (
                 <p className="muted">Aucun de vos groupes n&apos;est concerné par cette séance.</p>
               ) : (
                 attendingGroups.map((group) => (
@@ -202,6 +240,113 @@ function ClientRow({ client, slot, open, onToggle }) {
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Séance en cours : le coach coche les personnes présentes, puis note chaque
+ * présent Bien / Pas bien (le « à améliorer » n'est pas proposé ici). Une
+ * personne non cochée est absente et n'est pas notée. « Terminer » enregistre
+ * présences + rapports en un seul appel.
+ */
+function SessionRecorder({ slot, clients, onCancel, onSaved }) {
+  const [entries, setEntries] = useState(() =>
+    Object.fromEntries(clients.map((c) => [c.id, { present: false, rating: null, note: "" }]))
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const update = (id, patch) => setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  const presentCount = clients.filter((c) => entries[c.id]?.present).length;
+
+  async function finish() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api("/api/coach/sessions", "POST", {
+        sessionTypeId: slot.sessionType?.id || null,
+        label: slot.sessionType?.name || null,
+        date: new Date().toISOString(),
+        entries: clients.map((c) => ({
+          clientId: c.id,
+          present: !!entries[c.id]?.present,
+          rating: entries[c.id]?.present ? entries[c.id]?.rating : null,
+          note: entries[c.id]?.note || "",
+        })),
+      });
+      onSaved(res?.recorded ?? clients.length);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
+      <p className="muted small">
+        Cochez les personnes présentes, puis notez leur séance. {presentCount} présent(s) sur {clients.length}.
+      </p>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {clients.map((c) => {
+          const e = entries[c.id] || {};
+          const name = `${c.user.firstName} ${c.user.lastName}`;
+          return (
+            <div key={c.id} className="card" style={{ padding: 10 }}>
+              <div className="flex-between wrap" style={{ gap: 8, alignItems: "center" }}>
+                <label className="flex" style={{ alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!e.present}
+                    onChange={(ev) => update(c.id, { present: ev.target.checked, rating: ev.target.checked ? e.rating : null })}
+                  />
+                  <span style={{ fontWeight: 500 }}>{name}</span>
+                  <span className="muted small">{c.groupName} · Niveau {c.level ?? 1}/5</span>
+                </label>
+                <div className="flex" style={{ gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={!e.present}
+                    onClick={() => update(c.id, { rating: "BON" })}
+                    style={e.present && e.rating === "BON" ? { background: "var(--green)", color: "#fff", borderColor: "var(--green)" } : undefined}
+                  >
+                    <Icon name="check" /> Bien
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={!e.present}
+                    onClick={() => update(c.id, { rating: "MAUVAIS" })}
+                    style={e.present && e.rating === "MAUVAIS" ? { background: "var(--red)", color: "#fff", borderColor: "var(--red)" } : undefined}
+                  >
+                    <Icon name="x" /> Pas bien
+                  </button>
+                </div>
+              </div>
+              {e.present && (
+                <input
+                  className="input mt"
+                  placeholder="Note sur la séance (facultatif)…"
+                  value={e.note}
+                  onChange={(ev) => update(c.id, { note: ev.target.value })}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex mt">
+        <button type="button" className="btn" onClick={onCancel} disabled={saving}>Annuler</button>
+        <button type="button" className="btn btn-primary" onClick={finish} disabled={saving}>
+          {saving ? "Enregistrement…" : "Terminer et enregistrer"}
+        </button>
+      </div>
     </div>
   );
 }

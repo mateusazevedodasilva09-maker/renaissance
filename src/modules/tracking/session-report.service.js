@@ -120,6 +120,68 @@ export async function createSessionReport(clientId, { date, rating, note, sessio
   return { report, level: levelUpdate };
 }
 
+/**
+ * Enregistre une séance de coaching entière depuis l'espace coach : pour chaque
+ * participant, sa présence et — s'il est présent — son ressenti (BON / MAUVAIS,
+ * le « à améliorer » n'est pas proposé ici). Une personne absente n'est jamais
+ * notée.
+ *
+ * Idempotent par jour : réenregistrer la même séance (même type de séance, même
+ * jour) remplace les présences et rapports existants au lieu de les dupliquer —
+ * le coach peut donc corriger sans créer de doublon. Le niveau de chaque
+ * participant est recalculé une seule fois à la fin (progression hebdomadaire).
+ *
+ * @param sessionTypeId  type de séance (thématique du créneau), pour rattacher le rapport
+ * @param label          intitulé lisible de la séance (ex. « Cardio »), stocké sur la présence
+ * @param date           date/heure de la séance (défaut : maintenant)
+ * @param entries        [{ clientId, present, rating: "BON"|"MAUVAIS"|null, note? }]
+ */
+export async function recordCoachingSession({ sessionTypeId = null, label = null, date, entries = [] }, { authorId = null } = {}) {
+  const when = date ? new Date(date) : new Date();
+  const dayStart = new Date(when); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(when); dayEnd.setHours(23, 59, 59, 999);
+  const week = startOfWeek(when);
+
+  const affected = new Set();
+  for (const e of entries) {
+    if (!e || !e.clientId) continue;
+    const { clientId } = e;
+    const present = !!e.present;
+    const rating = present && (e.rating === "BON" || e.rating === "MAUVAIS") ? e.rating : null;
+
+    // Présence : on efface celle du jour (même intitulé) avant de réécrire.
+    await prisma.attendance.deleteMany({
+      where: { clientId, label, date: { gte: dayStart, lte: dayEnd } },
+    });
+    await prisma.attendance.create({ data: { clientId, date: when, present, label: label || null } });
+
+    // Rapport de séance : on efface celui du jour (même type) avant de réécrire.
+    await prisma.sessionReport.deleteMany({
+      where: { clientId, sessionTypeId, date: { gte: dayStart, lte: dayEnd } },
+    });
+    if (rating) {
+      await prisma.sessionReport.create({
+        data: {
+          clientId,
+          date: when,
+          weekStart: week,
+          rating,
+          note: e.note || null,
+          sessionTypeId: sessionTypeId || null,
+          authorId: authorId || null,
+        },
+      });
+    }
+    affected.add(clientId);
+  }
+
+  // Recalcule le niveau de chaque participant pour la semaine (idempotent).
+  for (const clientId of affected) {
+    await recomputeWeeklyLevel(clientId, week);
+  }
+  return { recorded: affected.size, date: when, weekStart: week };
+}
+
 /** Historique des rapports de séance d'un client (le plus récent d'abord). */
 export function listSessionReports(clientId) {
   return prisma.sessionReport.findMany({
