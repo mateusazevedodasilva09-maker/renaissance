@@ -10,11 +10,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Icon from "@/components/Icon";
 
 const LINKS = [
-  { href: "/coach", label: "Accueil", icon: "home", exact: true },
-  { href: "/coach/planning", label: "Planning de la semaine", icon: "calendar" },
-  { href: "/coach/groupes", label: "Mes groupes", icon: "users" },
-  { href: "/coach/messages", label: "Messages", icon: "message" },
-  { href: "/coach/agenda", label: "Agenda & tâches", icon: "clipboard" },
+  { href: "/coach", label: "Mes coachés", icon: "dumbbell", exact: true },
+  { href: "/coach/besoin", label: "Qui a besoin de moi", icon: "heart" },
+  { href: "/coach/planning", label: "Mon planning", icon: "calendar" },
+  { href: "/coach/taches", label: "Mes tâches", icon: "clipboard" },
 ];
 
 export default function CoachNav() {

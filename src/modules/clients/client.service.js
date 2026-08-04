@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { startOfWeek } from "@/lib/dates";
 import { createUser } from "@/modules/auth/auth.service";
-import { getWonStatus, getStatusByKey, ensureAppStage } from "@/modules/crm/pipeline.service";
+import { getWonStatus, getDefaultStatus, ensureMetricsStage } from "@/modules/crm/pipeline.service";
 
 const include = {
   user: { select: { id: true, username: true, email: true, firstName: true, lastName: true, phone: true, isActive: true } },
@@ -102,7 +102,7 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
   // métriques » (le client a un compte mais doit renseigner ses données avant
   // que l'admin ne lui donne accès au dashboard). Repli sur « Inscrit » si le
   // statut n'existe pas.
-  const fillStatus = (await getStatusByKey("remplissage_metriques")) || (await getWonStatus());
+  const fillStatus = await ensureMetricsStage();
 
   // Objectifs : ceux cochés + celui du prospect (fiche CRM)
   const allGoalIds = [...new Set([...goalIds, ...(prospect.goalId ? [prospect.goalId] : [])])];
@@ -160,7 +160,8 @@ export async function convertProspect(prospectId, { password, goalIds = [] }, { 
 /**
  * Auto-inscription depuis l'app (le prospect crée lui-même son compte à la
  * première page du tunnel). Crée en une transaction cohérente :
- *   1. un Prospect au statut « Prospect appli » (source FORM) — historique CRM ;
+ *   1. un Prospect dans la colonne Prospect standard, source « Application »
+ *      (l'origine « app » est une source, plus une colonne de pipeline) ;
  *   2. le compte utilisateur CLIENT (mot de passe choisi par le prospect) ;
  *   3. la fiche Client reliée au prospect, `enrolled = false` et `paid = false`
  *      → il n'a accès qu'au tunnel d'onboarding, pas au dashboard.
@@ -179,8 +180,8 @@ export async function registerFromApp({ firstName, lastName, email, phone, passw
   const emailTaken = await prisma.user.findUnique({ where: { email: cleanEmail } });
   if (emailTaken) throw new ApiError("Un compte utilise déjà cette adresse e-mail.");
 
-  // Statut d'entrée du tunnel (créé automatiquement s'il n'existe pas encore).
-  const entry = await ensureAppStage();
+  // Colonne Prospect standard (première colonne non terminale).
+  const entry = await getDefaultStatus();
 
   const prospect = await prisma.prospect.create({
     data: {
@@ -188,7 +189,7 @@ export async function registerFromApp({ firstName, lastName, email, phone, passw
       lastName: lastName.trim(),
       email: cleanEmail,
       phone: phone.trim(),
-      source: "FORM",
+      source: "APP",
       statusId: entry.id,
     },
   });
@@ -217,7 +218,7 @@ export async function registerFromApp({ firstName, lastName, email, phone, passw
     data: {
       prospectId: prospect.id,
       type: "SYSTEM",
-      content: "Auto-inscription depuis l'app (statut : Prospect appli).",
+      content: "Auto-inscription depuis l'app (source : Application).",
       createdById: null,
     },
   });
@@ -273,6 +274,45 @@ export async function enrollClient(clientId, { userId = null } = {}) {
           prospectId: client.prospect.id,
           type: "SYSTEM",
           content: `Inscription validée — accès au dashboard accordé (statut : ${won.label}).`,
+          createdById: userId,
+        },
+      })
+    );
+  }
+  await prisma.$transaction(ops);
+  return getClient(clientId);
+}
+
+/**
+ * Refus d'onboarding par le staff : la fiche remplie par le client est
+ * incomplète ou incorrecte. Renvoie le client dans son tunnel d'onboarding
+ * (`onboardingMeasurementsDone = false`) AVEC un motif qui s'affichera dans son
+ * espace pour lui dire ce qui n'allait pas. Trace un événement CRM. Le motif est
+ * effacé automatiquement dès que le client renvoie sa fiche.
+ */
+export async function rejectOnboarding(clientId, reason, { userId = null } = {}) {
+  const msg = (reason || "").trim();
+  if (!msg) throw new ApiError("Le motif de refus est requis (il sera affiché au client).");
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: { prospect: { select: { id: true } } },
+  });
+  if (!client) throw new ApiError("Client introuvable.", 404);
+  if (client.enrolled) throw new ApiError("Ce client est déjà inscrit : impossible de refuser sa fiche.");
+
+  const ops = [
+    prisma.client.update({
+      where: { id: clientId },
+      data: { onboardingMeasurementsDone: false, onboardingRejectionReason: msg },
+    }),
+  ];
+  if (client.prospect) {
+    ops.push(
+      prisma.contactEvent.create({
+        data: {
+          prospectId: client.prospect.id,
+          type: "SYSTEM",
+          content: `Onboarding refusé — message envoyé au client : « ${msg} »`,
           createdById: userId,
         },
       })

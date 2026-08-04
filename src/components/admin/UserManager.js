@@ -9,6 +9,16 @@ import Link from "next/link";
 
 const ROLES = { ADMIN: "Admin", COACH: "Coach", CLIENT: "Client" };
 
+/** Génère un mot de passe fort et lisible (12 caractères, classes mélangées). */
+function generatePassword() {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%&*?"];
+  const all = sets.join("");
+  const pick = (s) => s[Math.floor(Math.random() * s.length)];
+  let out = sets.map(pick); // au moins un de chaque classe
+  for (let i = out.length; i < 12; i++) out.push(pick(all));
+  return out.sort(() => Math.random() - 0.5).join("");
+}
+
 async function api(path, method, body) {
   const res = await fetch(path, {
     method,
@@ -24,7 +34,16 @@ export default function UserManager({ initialUsers, sessionUserId }) {
   const [users, setUsers] = useState(initialUsers);
   const [filter, setFilter] = useState("");
   const [resetting, setResetting] = useState(null);
+  const [deleting, setDeleting] = useState(null); // compte en cours de suppression
+  const [revealed, setRevealed] = useState(() => new Set()); // ids dont le mdp est affiché
   const [error, setError] = useState(null);
+
+  const toggleReveal = (id) =>
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const visible = filter ? users.filter((u) => u.role === filter) : users;
 
@@ -34,6 +53,17 @@ export default function UserManager({ initialUsers, sessionUserId }) {
       setUsers(users.map((x) => (x.id === u.id ? { ...x, ...updated } : x)));
     } catch (err) { console.error(err);
       setError(err.message);
+    }
+  }
+
+  async function remove(u) {
+    try {
+      await api(`/api/users/${u.id}`, "DELETE");
+      setUsers(users.filter((x) => x.id !== u.id));
+      setDeleting(null);
+    } catch (err) { console.error(err);
+      setError(err.message);
+      setDeleting(null);
     }
   }
 
@@ -56,7 +86,7 @@ export default function UserManager({ initialUsers, sessionUserId }) {
       <div className="card">
         <table className="table">
           <thead>
-            <tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Groupes coachés</th><th>Actions</th></tr>
+            <tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Mot de passe</th><th>Groupes coachés</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {visible.map((u) => (
@@ -87,6 +117,27 @@ export default function UserManager({ initialUsers, sessionUserId }) {
                     {u.isActive ? "Actif" : "Désactivé"}
                   </span>
                 </td>
+                <td>
+                  {u.plainPassword ? (
+                    <div className="flex" style={{ gap: 6 }}>
+                      <code style={{ fontFamily: "monospace", fontSize: 13 }}>
+                        {revealed.has(u.id) ? u.plainPassword : "••••••••"}
+                      </code>
+                      <button className="btn btn-sm" onClick={() => toggleReveal(u.id)}>
+                        {revealed.has(u.id) ? "Masquer" : "Afficher"}
+                      </button>
+                      {revealed.has(u.id) && (
+                        <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(u.plainPassword)}>
+                          Copier
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="muted small" title="Mot de passe défini avant cette fonction — réinitialisez-le pour pouvoir l'afficher.">
+                      — (réinitialiser)
+                    </span>
+                  )}
+                </td>
                 <td className="small muted">
                   {u.groupsCoached?.length ? u.groupsCoached.map((g) => g.name).join(", ") : "—"}
                 </td>
@@ -100,6 +151,14 @@ export default function UserManager({ initialUsers, sessionUserId }) {
                       {u.isActive ? "Désactiver" : "Réactiver"}
                     </button>
                     <button className="btn btn-sm" onClick={() => setResetting(u)}>Mot de passe</button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      disabled={u.id === sessionUserId}
+                      title={u.id === sessionUserId ? "Vous ne pouvez pas supprimer votre propre compte." : "Supprimer définitivement ce compte"}
+                      onClick={() => setDeleting(u)}
+                    >
+                      Supprimer
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -118,6 +177,57 @@ export default function UserManager({ initialUsers, sessionUserId }) {
           }}
         />
       )}
+
+      {deleting && (
+        <DeleteModal
+          user={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => remove(deleting)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteModal({ user, onClose, onConfirm }) {
+  const [confirm, setConfirm] = useState("");
+  const fullName = `${user.firstName} ${user.lastName}`.trim();
+  const canDelete = confirm.trim().toUpperCase() === "SUPPRIMER";
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Supprimer le compte — {fullName}</h3>
+        <div className="alert alert-error" style={{ marginBottom: 12 }}>
+          Cette action est <strong>définitive</strong> et irréversible.
+        </div>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          {user.role === "CLIENT"
+            ? "La fiche client et toutes ses données (mesures, programmes, rapports…) seront effacées."
+            : "Le compte sera effacé."}{" "}
+          L'historique créé par cette personne (tâches, notes, événements CRM, groupes coachés…) est conservé, mais le nom de l'auteur est retiré.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canDelete) onConfirm();
+          }}
+        >
+          <div className="field">
+            <label>Tapez <strong>SUPPRIMER</strong> pour confirmer</label>
+            <input
+              className="input"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="SUPPRIMER"
+              autoFocus
+            />
+          </div>
+          <div className="flex">
+            <button type="button" className="btn" onClick={onClose}>Annuler</button>
+            <button className="btn btn-danger" disabled={!canDelete}>Supprimer définitivement</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -136,7 +246,13 @@ function ResetModal({ user, onClose, onSave }) {
         >
           <div className="field">
             <label>Mot de passe (min. 8 caractères) *</label>
-            <input className="input" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <div className="flex" style={{ gap: 8 }}>
+              <input className="input" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Saisir ou générer…" />
+              <button type="button" className="btn" onClick={() => setPassword(generatePassword())}>Générer</button>
+            </div>
+            <div className="muted small" style={{ marginTop: 6 }}>
+              Le mot de passe restera visible dans la liste pour que vous puissiez le transmettre à la personne.
+            </div>
           </div>
           <div className="flex">
             <button type="button" className="btn" onClick={onClose}>Annuler</button>

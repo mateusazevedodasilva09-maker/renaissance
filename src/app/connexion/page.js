@@ -23,7 +23,8 @@ export default function ConnexionPage() {
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Connexion impossible.");
-      router.push(json.data.role === "CLIENT" ? "/espace" : "/admin");
+      const role = json.data.role;
+      router.push(role === "CLIENT" ? "/espace" : role === "COACH" ? "/coach" : "/admin");
       router.refresh();
     } catch (err) { console.error(err);
       setState({ loading: false, error: err.message });

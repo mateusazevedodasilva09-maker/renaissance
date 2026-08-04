@@ -37,6 +37,7 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
   const router = useRouter();
   const [client, setClient] = useState(initialClient);
   const [error, setError] = useState(null);
+  const [rejecting, setRejecting] = useState(false); // modal « refuser la fiche »
 
   const activeProgram = client.programs?.find((p) => p.status === "ACTIVE");
   // Poids de référence : valeur forcée si renseignée, sinon dernier poids saisi,
@@ -71,14 +72,18 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
     }
   }
 
-  // Redemander le remplissage des métriques : remet le client sur la page de
-  // remplissage (gating). Utile si le prospect a validé un formulaire incomplet
-  // — on lui renvoie une demande sans toucher au schéma.
-  async function reRequestMetrics() {
-    if (!window.confirm("Renvoyer une demande de remplissage des métriques ? Le client repassera par la page de remplissage avant d'accéder à son espace.")) return;
+  // Refuser la fiche d'onboarding avec un motif : renvoie le client dans son
+  // tunnel de remplissage, et affiche dans son espace le message expliquant ce
+  // qui n'allait pas. Le motif est effacé dès que le client renvoie sa fiche.
+  async function rejectOnboarding(reason) {
     try {
-      const updated = await api(`/api/clients/${client.id}`, "PATCH", { onboardingMeasurementsDone: false });
-      setClient({ ...client, onboardingMeasurementsDone: updated.onboardingMeasurementsDone });
+      const updated = await api(`/api/clients/${client.id}/reject-onboarding`, "POST", { reason });
+      setClient({
+        ...client,
+        onboardingMeasurementsDone: updated.onboardingMeasurementsDone,
+        onboardingRejectionReason: updated.onboardingRejectionReason,
+      });
+      setRejecting(false);
     } catch (err) { console.error(err);
       setError(err.message);
     }
@@ -142,6 +147,15 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
                 ? <><Icon name="check" /> Paiement validé</>
                 : <><Icon name="warning" /> Paiement en attente</>}
             </span>
+            {client.onboardingRejectionReason && (
+              <> · <span
+                className="badge"
+                style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                title={`Message affiché au client : « ${client.onboardingRejectionReason} »`}
+              >
+                <Icon name="warning" /> Fiche refusée — message envoyé
+              </span></>
+            )}
             {client.prospect && (
               <> · <Link href={`/admin/crm/${client.prospect.id}`} style={{ color: "var(--accent)" }}>historique CRM →</Link></>
             )}
@@ -170,8 +184,8 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
             </button>
           )}
           {!client.enrolled && client.onboardingMeasurementsDone && (
-            <button className="btn" onClick={reRequestMetrics} title="Renvoyer le client sur la page de remplissage des métriques">
-              <Icon name="warning" /> Redemander le remplissage
+            <button className="btn btn-danger" onClick={() => setRejecting(true)} title="Refuser la fiche : renvoyer le client la corriger avec un message">
+              <Icon name="warning" /> Refuser la fiche
             </button>
           )}
           <Link href={`/admin/clients/${client.id}/apercu`} className="btn">
@@ -187,6 +201,14 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
       </div>
 
       {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
+
+      {rejecting && (
+        <RejectModal
+          name={`${client.user.firstName} ${client.user.lastName}`}
+          onClose={() => setRejecting(false)}
+          onSubmit={rejectOnboarding}
+        />
+      )}
 
       {/* Profil + cible nutrition (macros) */}
       <div className="grid grid-2 mb">
@@ -1031,6 +1053,50 @@ function ProgramCard({ client, exercises, activeProgram, onGenerated }) {
         clientId={client.id}
         onProgramReplaced={onGenerated}
       />
+    </div>
+  );
+}
+
+/**
+ * Modal « Refuser la fiche » : l'admin saisit le motif qui sera affiché au
+ * client dans son espace. Le client repasse par son tunnel de remplissage.
+ */
+function RejectModal({ name, onClose, onSubmit }) {
+  const [reason, setReason] = useState("");
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Refuser la fiche — {name}</h3>
+        <p className="muted small">
+          Le client sera renvoyé remplir sa fiche et verra ce message dans son
+          espace. Expliquez clairement ce qui n&apos;allait pas.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(reason);
+          }}
+        >
+          <div className="field">
+            <label>Message au client *</label>
+            <textarea
+              className="input"
+              required
+              rows={4}
+              autoFocus
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex. : le poids renseigné semble incorrect, et il manque vos disponibilités. Merci de corriger et de renvoyer."
+            />
+          </div>
+          <div className="flex">
+            <button type="button" className="btn" onClick={onClose}>Annuler</button>
+            <button className="btn btn-danger" disabled={!reason.trim()}>
+              <Icon name="warning" /> Refuser et renvoyer au client
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

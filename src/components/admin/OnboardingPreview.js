@@ -55,7 +55,7 @@ export default function OnboardingPreview({ currentStep }) {
       {step === "register" && (
         <Frame>
           <h2 style={{ marginBottom: 2 }}>Inscription</h2>
-          <p className="muted small">Le prospect crée son compte (statut « Prospect appli »).</p>
+          <p className="muted small">Le prospect crée son compte (source « Application »).</p>
           <Field label="Prénom" ph="Marie" />
           <Field label="Nom" ph="Dupont" />
           <Field label="E-mail" ph="marie@exemple.fr" />

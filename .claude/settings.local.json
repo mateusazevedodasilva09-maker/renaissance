@@ -43,7 +43,20 @@
       "Bash(git -C /Users/maninho_010/Documents/Claude/Projects/Appli/renaissance add src/app/globals.css src/app/layout.js src/app/page.js src/app/icon.svg src/app/admin/layout.js src/app/coach/layout.js src/app/connexion/page.js src/app/espace/layout.js src/app/rendez-vous/page.js src/components/Logo.js src/components/admin/Sidebar.js src/components/espace/OnboardingGate.js src/components/espace/WaitingGate.js public/brand)",
       "Bash(git -C /Users/maninho_010/Documents/Claude/Projects/Appli/renaissance commit -m 'Rebrand Essência : charte \\(crème/terracotta\\), Spectral, logo arbre + favicon *)",
       "Bash(command -v vercel)",
-      "Bash(grep -A3 datasource __TRACKED_VAR__/prisma/schema.prisma)"
+      "Bash(grep -A3 datasource __TRACKED_VAR__/prisma/schema.prisma)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"lucas.martin\",\"password\":\"Client1234!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"coach.demo\",\"password\":\"Coach1234!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(awk '/^model Client /,/^}/' /Users/maninho_010/Documents/Claude/Projects/Appli/renaissance/prisma/schema.prisma)",
+      "Bash(awk '/enum ProspectSource/,/}/' /Users/maninho_010/Documents/Claude/Projects/Appli/renaissance/prisma/schema.prisma)",
+      "Bash(npx prisma *)",
+      "Bash(grep -rniE 'secure|httpOnly|sameSite|cookies\\\\\\(\\\\\\).set|COOKIE_NAME' __TRACKED_VAR__/src/lib/session.js __TRACKED_VAR__/src/lib/token.js)",
+      "Bash(curl -s -D - -o /dev/null -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"mateus\",\"password\":\"MotDePasseFort0373!\"}')",
+      "Bash(curl -s -o /dev/null -w \"dev -> HTTP %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(grep -rn espace/exercices __TRACKED_VAR__/src)",
+      "Bash(grep -rn 'espace\\\\|/admin\\\\|/coach' __TRACKED_VAR__/src/app/api/auth/login/route.js __TRACKED_VAR__/src/app/connexion/page.js)",
+      "Bash(awk '/^model User /,/passwordHash/' /Users/maninho_010/Documents/Claude/Projects/Appli/renaissance/prisma/schema.prisma)",
+      "Bash(lsof -nP -iTCP -sTCP:LISTEN)",
+      "Bash(awk '{print $1, $2, $9}')"
     ]
   }
 }

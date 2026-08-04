@@ -46,6 +46,7 @@ export default async function EspaceLayout({ children }) {
       <OnboardingFlow
         firstName={firstName}
         measurementsDone={client.onboardingMeasurementsDone}
+        rejectionReason={client.onboardingRejectionReason}
         appointment={appointment ? { scheduledAt: appointment.scheduledAt } : null}
         profile={{
           gender: client.gender,
@@ -76,7 +77,6 @@ export default async function EspaceLayout({ children }) {
         <div className="section-label">Menu</div>
         <Link href="/espace" className="nav-link"><Icon name="calendar" /> Mes séances</Link>
         <Link href="/espace/programme" className="nav-link"><Icon name="dumbbell" /> Mon programme</Link>
-        <Link href="/espace/exercices" className="nav-link"><Icon name="target" /> Les exercices</Link>
         <Link href="/espace/suivi" className="nav-link"><Icon name="chart" /> Mon suivi</Link>
         <Link href="/espace/feedback" className="nav-link"><Icon name="message" /> Mon coach</Link>
         <div style={{ marginTop: "auto", padding: "14px 10px 4px", display: "grid", gap: 8 }}>

@@ -22,6 +22,7 @@ const EVENT_TYPES = {
 };
 
 export const SOURCES = {
+  APP: "Application",
   SOCIAL_MEDIA: "Réseaux sociaux",
   WORD_OF_MOUTH: "Bouche à oreille",
   FLYER: "Flyers",

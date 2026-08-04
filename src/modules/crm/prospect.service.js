@@ -15,6 +15,7 @@ const baseInclude = {
 /** Libellés des sources de prospect (côté serveur et client). */
 export const SOURCE_LABELS = {
   FORM: "Formulaire du site",
+  APP: "Application",
   MANUAL: "Ajout manuel",
   SOCIAL_MEDIA: "Réseaux sociaux",
   WORD_OF_MOUTH: "Bouche à oreille",

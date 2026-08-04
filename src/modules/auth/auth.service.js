@@ -49,6 +49,7 @@ export async function createUser({ email, firstName, lastName, phone, role, pass
       username: candidate,
       email: email.toLowerCase(),
       passwordHash,
+      plainPassword: password, // copie en clair (affichage admin) — voir schema
       role,
       firstName,
       lastName,

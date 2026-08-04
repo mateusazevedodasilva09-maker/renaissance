@@ -44,7 +44,7 @@ export default function AttentionList({ clients = [] }) {
                     {c.group?.name || "Sans groupe"} · niveau {c.level}/5
                   </div>
                 </div>
-                <Link href={`/admin/clients/${c.id}`} className="btn btn-sm">
+                <Link href={`/coach/coaches/${c.id}`} className="btn btn-sm">
                   <Icon name="user" /> Fiche
                 </Link>
               </div>
@@ -61,7 +61,7 @@ export default function AttentionList({ clients = [] }) {
                   return r.key === "message" ? (
                     <Link
                       key={r.key}
-                      href={`/admin/messages?client=${c.id}`}
+                      href={`/coach/coaches/${c.id}`}
                       className="badge"
                       style={{ borderColor: s.color, color: s.color, cursor: "pointer" }}
                     >

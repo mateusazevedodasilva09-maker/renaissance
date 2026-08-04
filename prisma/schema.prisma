@@ -35,6 +35,12 @@ model User {
   username     String   @unique
   email        String   @unique
   passwordHash String
+  // ⚠️ SÉCURITÉ : copie EN CLAIR du mot de passe, conservée à la demande de
+  // l'admin pour pouvoir l'afficher dans la section Utilisateurs. L'authentifi-
+  // cation se fait TOUJOURS sur `passwordHash` (bcrypt) — ce champ n'est jamais
+  // utilisé pour se connecter. Renseigné uniquement aux mots de passe définis
+  // depuis cette version (les anciens, hachés, restent irrécupérables → null).
+  plainPassword String?
   role         Role     @default(CLIENT)
   firstName    String
   lastName     String
@@ -94,6 +100,7 @@ model PipelineStatus {
 
 enum ProspectSource {
   FORM // formulaire public de prise de rendez-vous
+  APP // auto-inscription depuis l'application
   MANUAL // ajouté à la main par l'admin
   SOCIAL_MEDIA // réseaux sociaux
   WORD_OF_MOUTH // bouche à oreille
@@ -124,7 +131,7 @@ model Prospect {
 
   status       PipelineStatus @relation(fields: [statusId], references: [id])
   statusId     String
-  assignedTo   User?          @relation("ProspectOwner", fields: [assignedToId], references: [id])
+  assignedTo   User?          @relation("ProspectOwner", fields: [assignedToId], references: [id], onDelete: SetNull)
   assignedToId String?
 
   // Objectif du prospect (liste déroulante alimentée par la table Goal)
@@ -163,7 +170,7 @@ model ContactEvent {
   type       ContactEventType @default(NOTE)
   content    String
   occurredAt DateTime         @default(now())
-  createdBy  User?            @relation("EventAuthor", fields: [createdById], references: [id])
+  createdBy  User?            @relation("EventAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
   @@index([prospectId, occurredAt])
@@ -191,9 +198,9 @@ model Task {
   createdAt   DateTime   @default(now())
   completedAt DateTime?
 
-  assignee    User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assigneeId  String?
-  createdBy   User?   @relation("TaskCreator", fields: [createdById], references: [id])
+  createdBy   User?   @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
   @@index([assigneeId, dueAt])
@@ -252,6 +259,13 @@ model Client {
   // signale l'étape « mensurations à remplir » comme ouverte.
   onboardingMeasurementsDone Boolean @default(false)
 
+  // Motif de refus de l'onboarding par le staff. Quand l'admin refuse la fiche
+  // du client (informations incomplètes / incorrectes), il renvoie le client
+  // remplir sa fiche AVEC un message expliquant ce qui n'allait pas : ce message
+  // s'affiche dans l'espace client. Effacé (null) dès que le client renvoie sa
+  // fiche. `null` = aucun refus en cours.
+  onboardingRejectionReason String?
+
   // Accès au dashboard : contrôlé par l'admin. À la conversion, le client a un
   // compte mais `enrolled = false` → il ne voit que la page de remplissage des
   // métriques. Une fois les métriques remplies puis l'admin l'ayant « inscrit »,
@@ -289,8 +303,10 @@ model Client {
   carbTargetG    Int? // glucides g/jour
   fatTargetG     Int? // lipides g/jour
 
-  // Compte utilisateur (espace client)
-  user   User   @relation("ClientUser", fields: [userId], references: [id])
+  // Compte utilisateur (espace client). onDelete: Cascade → si l'admin supprime
+  // le compte, la fiche client et toutes ses données (cascade en aval) partent
+  // avec lui. C'est la donnée « propre » du compte supprimé.
+  user   User   @relation("ClientUser", fields: [userId], references: [id], onDelete: Cascade)
   userId String @unique
 
   // Lien vers le prospect d'origine : conserve tout l'historique CRM
@@ -493,7 +509,7 @@ model Program {
   clientId    String?
   goal        Goal?   @relation(fields: [goalId], references: [id], onDelete: Cascade)
   goalId      String?
-  createdBy   User?   @relation("ProgramAuthor", fields: [createdById], references: [id])
+  createdBy   User?   @relation("ProgramAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
   sessions ProgramSession[]
@@ -572,7 +588,7 @@ model Group {
   goal   Goal?   @relation(fields: [goalId], references: [id])
   goalId String?
 
-  coach   User?   @relation("GroupCoach", fields: [coachId], references: [id])
+  coach   User?   @relation("GroupCoach", fields: [coachId], references: [id], onDelete: SetNull)
   coachId String?
 
   clients Client[]
@@ -703,7 +719,7 @@ model ClientNote {
   clientId String
 
   // Auteur de la note (coach ou admin)
-  author   User?   @relation("NoteAuthor", fields: [authorId], references: [id])
+  author   User?   @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   authorId String?
 
   @@index([clientId, createdAt])
@@ -741,7 +757,7 @@ model WeeklyAdvice {
   client   Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   clientId String?
 
-  author   User?   @relation("AdviceAuthor", fields: [authorId], references: [id])
+  author   User?   @relation("AdviceAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   authorId String?
 
   @@index([weekStart])
@@ -776,7 +792,7 @@ model SessionReport {
   sessionTypeId String?
 
   // Auteur du rapport (coach / admin).
-  author   User?   @relation("ReportAuthor", fields: [authorId], references: [id])
+  author   User?   @relation("ReportAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   authorId String?
 
   // PR optionnel : quand la séance est « bonne », le coach peut enregistrer un

@@ -29,8 +29,6 @@ export default function TrackingView({ initialMetrics, strengthLogs = [], cardio
   const [period, setPeriod] = useState("quarter");
   const [exerciseId, setExerciseId] = useState("");
   const [chart, setChart] = useState("poids"); // schéma affiché (un seul à la fois)
-  const [form, setForm] = useState({ weightKg: "", energyLevel: "", sessionsAttended: "", notes: "" });
-  const [msg, setMsg] = useState(null);
 
   // --- Période sélectionnée -----------------------------------------------------
   const since = useMemo(() => {
@@ -126,30 +124,6 @@ export default function TrackingView({ initialMetrics, strengthLogs = [], cardio
   };
   const current = CHARTS[chart] || CHARTS.poids;
 
-  async function submit(e) {
-    e.preventDefault();
-    setMsg(null);
-    try {
-      const res = await fetch("/api/me/metrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          weightKg: form.weightKg === "" ? undefined : Number(form.weightKg),
-          energyLevel: form.energyLevel === "" ? undefined : Number(form.energyLevel),
-          sessionsAttended: form.sessionsAttended === "" ? undefined : Number(form.sessionsAttended),
-          notes: form.notes || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
-      const rest = metrics.filter((m) => m.id !== json.data.id);
-      setMetrics([...rest, json.data].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart)));
-      setMsg({ type: "success", text: "✓ Semaine enregistrée, bravo pour la régularité !" });
-    } catch (err) { console.error(err);
-      setMsg({ type: "error", text: err.message });
-    }
-  }
-
   return (
     <div>
       <div className="page-header">
@@ -210,21 +184,6 @@ export default function TrackingView({ initialMetrics, strengthLogs = [], cardio
           <Trend delta={trends.distance} unit=" km" />
         </div>
       </div>
-
-      {/* Saisie hebdo (masquée en mode aperçu) */}
-      {!readOnly && (
-        <div className="card mb">
-          <h3>Ma semaine</h3>
-          {msg && <div className={`alert alert-${msg.type === "success" ? "success" : "error"}`}>{msg.text}</div>}
-          <form onSubmit={submit} className="flex wrap">
-            <input className="input" style={{ width: 130 }} type="number" step="0.1" placeholder="Poids (kg)" value={form.weightKg} onChange={(e) => setForm({ ...form, weightKg: e.target.value })} />
-            <input className="input" style={{ width: 140 }} type="number" min="1" max="10" placeholder="Énergie (1-10)" value={form.energyLevel} onChange={(e) => setForm({ ...form, energyLevel: e.target.value })} />
-            <input className="input" style={{ width: 150 }} type="number" min="0" placeholder="Séances suivies" value={form.sessionsAttended} onChange={(e) => setForm({ ...form, sessionsAttended: e.target.value })} />
-            <input className="input" style={{ flex: 1, minWidth: 160 }} placeholder="Note (facultatif)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            <button className="btn btn-primary">Enregistrer ma semaine</button>
-          </form>
-        </div>
-      )}
 
       {/* Un seul espace graphique : le client choisit le schéma affiché. */}
       <div className="card mb">

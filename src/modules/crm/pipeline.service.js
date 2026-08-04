@@ -60,28 +60,25 @@ export function getStatusByKey(key) {
 }
 
 /**
- * Garantit l'existence des statuts propres au tunnel d'auto-inscription depuis
- * l'app. Idempotent : crée « prospect appli » et « remplissage métriques » s'ils
- * n'existent pas encore, sans migration ni doublon. Retourne le statut d'entrée
- * (« prospect appli »).
+ * Garantit l'existence du statut « Remplissage métriques » (étape où le client
+ * converti doit renseigner ses données avant validation). Idempotent : le crée
+ * s'il n'existe pas encore, sans migration ni doublon, et le retourne.
+ *
+ * Note : l'ancien statut « Prospect appli » a été supprimé — l'origine « app »
+ * est désormais une SOURCE de prospect (source « Application »), pas une colonne
+ * de pipeline. Les inscriptions app arrivent donc dans la colonne Prospect
+ * standard avec `source: "APP"`.
  */
-export async function ensureAppStage() {
-  const stages = [
-    { key: "prospect_appli", label: "Prospect appli", color: "#6366f1" },
-    { key: "remplissage_metriques", label: "Remplissage métriques", color: "#0ea5e9" },
-  ];
-  let entry = null;
-  for (const s of stages) {
-    let status = await prisma.pipelineStatus.findUnique({ where: { key: s.key } });
-    if (!status) {
-      const max = await prisma.pipelineStatus.aggregate({ _max: { position: true } });
-      status = await prisma.pipelineStatus.create({
-        data: { key: s.key, label: s.label, color: s.color, position: (max._max.position ?? 0) + 1 },
-      });
-    }
-    if (s.key === "prospect_appli") entry = status;
+export async function ensureMetricsStage() {
+  const key = "remplissage_metriques";
+  let status = await prisma.pipelineStatus.findUnique({ where: { key } });
+  if (!status) {
+    const max = await prisma.pipelineStatus.aggregate({ _max: { position: true } });
+    status = await prisma.pipelineStatus.create({
+      data: { key, label: "Remplissage métriques", color: "#0ea5e9", position: (max._max.position ?? 0) + 1 },
+    });
   }
-  return entry;
+  return status;
 }
 
 /** Statut par défaut d'un nouveau prospect (première colonne non terminale). */

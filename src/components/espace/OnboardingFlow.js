@@ -77,15 +77,30 @@ function Shell({ children, wide }) {
   );
 }
 
-export default function OnboardingFlow({ firstName, measurementsDone, appointment, profile }) {
+/** Bandeau affiché au client quand le coach a refusé sa fiche (avec le motif). */
+function RejectionAlert({ reason }) {
+  if (!reason) return null;
+  return (
+    <div className="alert" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--text)" }}>
+      <strong><Icon name="warning" /> Votre coach a besoin de précisions :</strong>
+      <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{reason}</div>
+      <div className="muted small" style={{ marginTop: 6 }}>
+        Merci de corriger vos informations ci-dessous, puis de les renvoyer.
+      </div>
+    </div>
+  );
+}
+
+export default function OnboardingFlow({ firstName, measurementsDone, rejectionReason, appointment, profile }) {
   const router = useRouter();
-  const [view, setView] = useState("hub");
+  // Si le coach a refusé la fiche, on ouvre directement l'étape « fiche ».
+  const [view, setView] = useState(rejectionReason ? "fiche" : "hub");
 
   // Si les mesures sont déjà envoyées → attente de validation (paiement + coach).
   if (measurementsDone) return <WaitingView firstName={firstName} appointment={appointment} />;
 
   if (view === "call") return <CallView firstName={firstName} appointment={appointment} onBack={() => setView("hub")} router={router} />;
-  if (view === "fiche") return <FicheView profile={profile} onBack={() => setView("hub")} router={router} />;
+  if (view === "fiche") return <FicheView profile={profile} rejectionReason={rejectionReason} onBack={() => setView("hub")} router={router} />;
 
   return (
     <Shell>
@@ -96,6 +111,7 @@ export default function OnboardingFlow({ firstName, measurementsDone, appointmen
           <div className="muted small">Comment souhaitez-vous démarrer ?</div>
         </div>
       </div>
+      <RejectionAlert reason={rejectionReason} />
       <p className="muted">
         Vous pouvez réserver un appel découverte avec le coach, ou envoyer directement
         vos informations et vos mesures pour lancer votre suivi.
@@ -225,7 +241,7 @@ function CallView({ firstName, appointment, onBack, router }) {
   );
 }
 
-function FicheView({ profile, onBack, router }) {
+function FicheView({ profile, rejectionReason, onBack, router }) {
   const [form, setForm] = useState(() => {
     const base = {};
     for (const [k] of PROFILE_FIELDS) base[k] = profile?.[k] ?? "";
@@ -277,6 +293,7 @@ function FicheView({ profile, onBack, router }) {
       <button className="btn btn-sm" style={{ marginBottom: 10 }} onClick={onBack}><Icon name="arrow-left" /> Retour</button>
       <h2 style={{ marginBottom: 2 }}>Vos informations</h2>
       <p className="muted small">Pour que votre coach prépare un suivi adapté. Seul le poids est obligatoire.</p>
+      <RejectionAlert reason={rejectionReason} />
       {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
 
       <form onSubmit={submit}>

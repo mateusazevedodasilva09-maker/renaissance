@@ -197,7 +197,7 @@ function ClientRow({ client, slot, open, onToggle }) {
               </tbody>
             </table>
           )}
-          <Link href={`/admin/clients/${client.id}`} className="btn btn-sm btn-primary" style={{ marginTop: 8 }}>
+          <Link href={`/coach/coaches/${client.id}`} className="btn btn-sm btn-primary" style={{ marginTop: 8 }}>
             <Icon name="user" /> Fiche client
           </Link>
         </div>

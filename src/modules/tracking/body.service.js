@@ -63,7 +63,11 @@ export async function addMeasurementByClient(clientId, data) {
   // staff — une tâche apparaît dans l'agenda et le prospect reçoit un événement.
   if (client && !client.onboardingMeasurementsDone) {
     const name = `${client.user.firstName} ${client.user.lastName}`;
-    await prisma.client.update({ where: { id: clientId }, data: { onboardingMeasurementsDone: true } });
+    // Le client (re)soumet sa fiche → étape faite + tout motif de refus effacé.
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { onboardingMeasurementsDone: true, onboardingRejectionReason: null },
+    });
     await prisma.task.create({
       data: {
         title: `Valider l'inscription — ${name}`,
