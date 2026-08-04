@@ -9,6 +9,8 @@ import { getClient } from "@/modules/clients/client.service";
 import { listGoals, listSessionTypes } from "@/modules/sessions/schedule.service";
 import { listExercises } from "@/modules/programs/program.service";
 import { listGenerators } from "@/modules/programs/generation/registry";
+import { listGroups } from "@/modules/clients/group.service";
+import { listStaff } from "@/modules/auth/user.service";
 import ClientFile from "@/components/admin/ClientFile";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +18,16 @@ export const dynamic = "force-dynamic";
 export default async function ClientPage({ params }) {
   // Le programme est construit à la main par le coach : aucune génération ni
   // pré-requête ici (chargement plus rapide, tout se fait en parallèle).
-  const [session, client, goals, exercises, sessionTypes] = await Promise.all([
-    getSession(),
+  const session = await getSession();
+  const isAdmin = session?.role === "ADMIN";
+  const [client, goals, exercises, sessionTypes, groups, staff] = await Promise.all([
     getClient(params.id),
     listGoals(),
     listExercises(),
     listSessionTypes(),
+    // Groupes + staff pour la carte « Groupe & coach » (assignation réservée à l'admin).
+    isAdmin ? listGroups() : [],
+    isAdmin ? listStaff() : [],
   ]);
   if (session?.role === "COACH" && client.group?.coachId !== session.userId) {
     redirect("/admin/clients");
@@ -33,6 +39,9 @@ export default async function ClientPage({ params }) {
       exercises={JSON.parse(JSON.stringify(exercises))}
       sessionTypes={JSON.parse(JSON.stringify(sessionTypes))}
       generators={listGenerators()}
+      groups={JSON.parse(JSON.stringify(groups))}
+      coaches={JSON.parse(JSON.stringify(staff))}
+      isAdmin={isAdmin}
     />
   );
 }

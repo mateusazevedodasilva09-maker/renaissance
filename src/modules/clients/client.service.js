@@ -25,6 +25,18 @@ export function listClients({ activeOnly = false, coachUserId = null } = {}) {
   });
 }
 
+/** Liste légère (menus d'assignation aux groupes) : id, nom, groupe actuel. */
+export function listClientsBrief() {
+  return prisma.client.findMany({
+    select: {
+      id: true,
+      groupId: true,
+      user: { select: { firstName: true, lastName: true } },
+    },
+    orderBy: { joinedAt: "desc" },
+  });
+}
+
 export async function getClient(id) {
   const client = await prisma.client.findUnique({
     where: { id },

@@ -20,14 +20,59 @@ async function api(path, method, body) {
   return json.data;
 }
 
-export default function GroupManager({ initialGroups, goals, staff, stats = {}, isAdmin }) {
+export default function GroupManager({ initialGroups, goals, staff, stats = {}, allClients = [], isAdmin }) {
   const [groups, setGroups] = useState(initialGroups);
   const [editing, setEditing] = useState(null); // groupe en cours d'édition
   const [creating, setCreating] = useState(false);
   const [advising, setAdvising] = useState(null); // groupe pour le conseil
+  const [addingTo, setAddingTo] = useState(null); // groupe où ajouter un membre
   const [error, setError] = useState(null);
 
   const coaches = staff.filter((s) => s.role === "COACH" || s.role === "ADMIN");
+
+  // Nom du groupe actuel de chaque client (pour situer dans le sélecteur d'ajout).
+  const clientGroupName = useMemo(() => {
+    const m = {};
+    for (const g of groups) for (const c of g.clients) m[c.id] = g.name;
+    return m;
+  }, [groups]);
+
+  // Assigne un client à un groupe (le retire de son groupe précédent) et met à
+  // jour l'affichage. Bloque si le groupe est complet.
+  async function assignMember(group, client) {
+    if (group.clients.length >= group.capacity) {
+      setError(`« ${group.name} » est complet (${group.capacity} places).`);
+      return;
+    }
+    try {
+      await api(`/api/clients/${client.id}`, "PATCH", { groupId: group.id });
+      setGroups((prev) =>
+        prev.map((g) => {
+          const clients = g.clients.filter((c) => c.id !== client.id);
+          if (g.id === group.id) clients.push({ id: client.id, user: client.user });
+          return { ...g, clients, _count: { ...g._count, clients: clients.length } };
+        })
+      );
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
+
+  // Retire un client d'un groupe (il n'appartient plus à aucun groupe).
+  async function detachMember(group, clientId) {
+    try {
+      await api(`/api/clients/${clientId}`, "PATCH", { groupId: null });
+      setGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== group.id) return g;
+          const clients = g.clients.filter((c) => c.id !== clientId);
+          return { ...g, clients, _count: { ...g._count, clients: clients.length } };
+        })
+      );
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
 
   // Groupes rangés en colonnes par type (objectif commun).
   const columns = useMemo(() => {
@@ -76,6 +121,8 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
                 onAdvise={() => setAdvising(g)}
                 onEdit={() => setEditing(g)}
                 onRemove={() => remove(g)}
+                onAddMember={() => setAddingTo(g)}
+                onDetachMember={(clientId) => detachMember(g, clientId)}
               />
             ))}
           </div>
@@ -99,6 +146,18 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
         />
       )}
       {advising && <AdviceModal group={advising} onClose={() => setAdvising(null)} />}
+      {addingTo && (
+        <AddMemberModal
+          group={addingTo}
+          allClients={allClients}
+          clientGroupName={clientGroupName}
+          onClose={() => setAddingTo(null)}
+          onPick={async (client) => {
+            await assignMember(addingTo, client);
+            setAddingTo(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -111,9 +170,10 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
  * (niveau moyen + courbe du poids moyen). Le bouton « Conseil de la semaine »
  * passe en vert quand un conseil a déjà été envoyé pour la semaine en cours.
  */
-function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove }) {
+function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove, onAddMember, onDetachMember }) {
   const [open, setOpen] = useState(false);
   const sent = stat?.hasAdviceThisWeek;
+  const full = g.clients.length >= g.capacity;
 
   return (
     <div className="kanban-card" style={{ cursor: "default", padding: 12 }}>
@@ -152,10 +212,31 @@ function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove }) {
 
       {g.clients.length === 0 && <p className="muted small" style={{ marginTop: 8 }}>Aucun inscrit pour le moment.</p>}
       {g.clients.map((c) => (
-        <div key={c.id} style={{ padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+        <div key={c.id} className="flex-between" style={{ padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
           <Link href={`/admin/clients/${c.id}`}>{c.user?.firstName} {c.user?.lastName}</Link>
+          {isAdmin && (
+            <button
+              className="btn btn-sm btn-danger"
+              title="Retirer du groupe"
+              onClick={() => onDetachMember(c.id)}
+              style={{ padding: "2px 8px" }}
+            >
+              <Icon name="x" />
+            </button>
+          )}
         </div>
       ))}
+
+      {isAdmin && (
+        <button
+          className="btn btn-sm mt"
+          onClick={onAddMember}
+          disabled={full}
+          title={full ? "Groupe complet" : "Ajouter un client à ce groupe"}
+        >
+          <Icon name="plus" /> {full ? "Groupe complet" : "Ajouter un membre"}
+        </button>
+      )}
 
       <div className="flex wrap mt">
         <button
@@ -235,6 +316,62 @@ function GroupModal({ group, goals, coaches, onClose, onSaved }) {
             <button className="btn btn-primary">{group ? "Enregistrer" : "Créer"}</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* --- Ajout d'un membre à un groupe ----------------------------------------------- */
+
+/**
+ * Sélecteur d'un client à ajouter au groupe. Liste tous les clients qui ne sont
+ * pas déjà dans ce groupe, avec une recherche par nom et un rappel de leur
+ * groupe actuel (le client sera déplacé de son groupe précédent).
+ */
+function AddMemberModal({ group, allClients, clientGroupName, onClose, onPick }) {
+  const [q, setQ] = useState("");
+  const inGroup = new Set(group.clients.map((c) => c.id));
+  const term = q.trim().toLowerCase();
+  const available = allClients
+    .filter((c) => !inGroup.has(c.id))
+    .filter((c) => {
+      if (!term) return true;
+      const name = `${c.user?.firstName || ""} ${c.user?.lastName || ""}`.toLowerCase();
+      return name.includes(term);
+    });
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Ajouter un membre — {group.name}</h3>
+        <p className="muted small">
+          {group.clients.length} / {group.capacity} places occupées. Sélectionnez un client :
+          il rejoindra ce groupe (et quittera son groupe actuel s&apos;il en a un).
+        </p>
+        <div className="field">
+          <input className="input" placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+        </div>
+        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+          {available.length === 0 ? (
+            <p className="muted small">Aucun client disponible.</p>
+          ) : (
+            available.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="flex-between"
+                onClick={() => onPick(c)}
+                style={{ width: "100%", textAlign: "left", padding: "8px 4px", borderBottom: "1px solid var(--border)", background: "none", border: "none", cursor: "pointer" }}
+              >
+                <span>{c.user?.firstName} {c.user?.lastName}</span>
+                <span className="muted small">{clientGroupName[c.id] ? `Groupe : ${clientGroupName[c.id]}` : "Sans groupe"}</span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="flex mt">
+          <button type="button" className="btn" onClick={onClose}>Fermer</button>
+        </div>
       </div>
     </div>
   );

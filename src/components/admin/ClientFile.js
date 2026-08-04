@@ -33,11 +33,34 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-di
 // Calculs de métabolisme et de macros : source unique dans le module nutrition
 // (partagé avec l'espace client — voir src/modules/clients/nutrition.js).
 
-export default function ClientFile({ initialClient, goals, exercises = [], sessionTypes = [], generators }) {
+export default function ClientFile({ initialClient, goals, exercises = [], sessionTypes = [], generators, groups = [], coaches = [], isAdmin = false }) {
   const router = useRouter();
   const [client, setClient] = useState(initialClient);
   const [error, setError] = useState(null);
   const [rejecting, setRejecting] = useState(false); // modal « refuser la fiche »
+
+  // Assigner le client à un groupe (ou l'en retirer). Le coach du client découle
+  // du groupe : changer de groupe change donc aussi son coach.
+  async function assignGroup(groupId) {
+    try {
+      const updated = await api(`/api/clients/${client.id}`, "PATCH", { groupId: groupId || null });
+      setClient({ ...client, group: updated.group, groupId: updated.group?.id ?? null });
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
+
+  // Changer le coach : le coach est porté par le groupe, donc on met à jour le
+  // groupe du client (s'applique à tous ses membres).
+  async function assignCoach(coachId) {
+    if (!client.group) return;
+    try {
+      const g = await api(`/api/groups/${client.group.id}`, "PATCH", { coachId: coachId || null });
+      setClient({ ...client, group: { ...client.group, coach: g.coach, coachId: g.coachId } });
+    } catch (err) { console.error(err);
+      setError(err.message);
+    }
+  }
 
   const activeProgram = client.programs?.find((p) => p.status === "ACTIVE");
   // Poids de référence : valeur forcée si renseignée, sinon dernier poids saisi,
@@ -210,6 +233,19 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
         />
       )}
 
+      {/* Groupe & coach (assignation réservée à l'admin) */}
+      {isAdmin && (
+        <div className="mb">
+          <GroupCoachCard
+            client={client}
+            groups={groups}
+            coaches={coaches}
+            onAssignGroup={assignGroup}
+            onAssignCoach={assignCoach}
+          />
+        </div>
+      )}
+
       {/* Profil + cible nutrition (macros) */}
       <div className="grid grid-2 mb">
         <ProfileCard client={client} lastWeight={lastWeight} onSaved={(c) => setClient({ ...client, ...c })} />
@@ -307,6 +343,57 @@ export default function ClientFile({ initialClient, goals, exercises = [], sessi
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* --- Groupe & coach -------------------------------------------------------------- */
+
+/**
+ * Assignation du client à un groupe et choix de son coach. Le coach est porté
+ * par le groupe : le sélecteur de coach modifie le coach du groupe (et donc de
+ * tous ses membres). Sans groupe, le coach ne peut pas être défini.
+ */
+function GroupCoachCard({ client, groups, coaches, onAssignGroup, onAssignCoach }) {
+  const staff = coaches.filter((c) => c.role === "COACH" || c.role === "ADMIN");
+  const currentGroupId = client.group?.id || "";
+  const currentCoachId = client.group?.coachId || "";
+
+  return (
+    <div className="card">
+      <h3><Icon name="users" /> Groupe &amp; coach</h3>
+      <div className="form-row">
+        <div className="field">
+          <label>Groupe</label>
+          <select className="input" value={currentGroupId} onChange={(e) => onAssignGroup(e.target.value)}>
+            <option value="">— Aucun groupe —</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} ({g._count?.clients ?? g.clients?.length ?? 0}/{g.capacity})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Coach</label>
+          <select
+            className="input"
+            value={currentCoachId}
+            disabled={!client.group}
+            onChange={(e) => onAssignCoach(e.target.value)}
+          >
+            <option value="">— Aucun —</option>
+            {staff.map((c) => (
+              <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="muted small" style={{ marginBottom: 0 }}>
+        {client.group
+          ? "Le coach choisi s'applique à tout le groupe. Changer de groupe change aussi le coach du client."
+          : "Assignez d'abord un groupe pour pouvoir choisir un coach."}
+      </p>
     </div>
   );
 }
