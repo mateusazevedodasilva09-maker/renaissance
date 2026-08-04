@@ -14,7 +14,7 @@ export default function HomePage() {
           <p className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.22em", fontSize: 11, fontWeight: 300, marginBottom: 12 }}>
             A força vem de dentro
           </p>
-          <p className="muted">Coaching sportif en groupe — reprenez le contrôle de votre forme.</p>
+          <p className="muted">Coaching sportif en groupe</p>
           <div className="mt" style={{ display: "grid", gap: 10 }}>
             <Link className="btn btn-primary" href="/inscription">
               Créer mon compte
