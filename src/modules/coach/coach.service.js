@@ -42,6 +42,24 @@ export async function getCoachDashboard(coachUserId) {
           },
           orderBy: { joinedAt: "asc" },
         },
+        // Programme actif du groupe = « séance du jour » notée exercice par
+        // exercice. Ses jours et exercices alimentent l'écran de notation.
+        programs: {
+          where: { status: "ACTIVE" },
+          take: 1,
+          orderBy: { updatedAt: "desc" },
+          include: {
+            sessions: {
+              orderBy: { position: "asc" },
+              include: {
+                exercises: {
+                  orderBy: { position: "asc" },
+                  include: { exercise: true },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "asc" },
     }),

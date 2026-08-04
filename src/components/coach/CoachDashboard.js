@@ -28,6 +28,40 @@ async function api(path, method, body) {
   return json.data;
 }
 
+/**
+ * « Séance du jour » d'un groupe = les exercices de son programme actif. On
+ * privilégie le jour du programme dont le weekday correspond au créneau ; sinon
+ * on met à plat tous les jours. Les exercices sont dédoublonnés et normalisés
+ * en { exerciseId, name, sets, reps, restSec }.
+ */
+function programExercises(group, slot) {
+  const days = group?.programs?.[0]?.sessions || [];
+  if (days.length === 0) return [];
+  const match = slot?.weekday ? days.find((d) => d.weekday === slot.weekday) : null;
+  const chosen = match ? [match] : days;
+  const seen = new Set();
+  const out = [];
+  for (const d of chosen) {
+    for (const pe of d.exercises || []) {
+      if (!pe.exercise || seen.has(pe.exerciseId)) continue;
+      seen.add(pe.exerciseId);
+      out.push({ exerciseId: pe.exerciseId, name: pe.exercise.name, sets: pe.sets, reps: pe.reps, restSec: pe.restSec });
+    }
+  }
+  return out;
+}
+
+/** Exercices de repli (thématique de séance) normalisés au même format. */
+function sessionTypeExercises(slot) {
+  return (slot?.sessionType?.exercises || []).map((ex) => ({
+    exerciseId: ex.exerciseId || ex.exercise?.id,
+    name: ex.exercise?.name,
+    sets: ex.sets,
+    reps: ex.reps,
+    restSec: ex.restSec,
+  }));
+}
+
 export default function CoachDashboard({ dashboard, coaches = [], selectedCoachId, isAdmin = false }) {
   const router = useRouter();
   const { groups = [], slots = [] } = dashboard || {};
@@ -151,7 +185,7 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
               {recording ? (
                 <SessionRecorder
                   slot={selectedSlot}
-                  clients={attendingClients}
+                  groups={attendingGroups}
                   onCancel={() => setRecording(false)}
                   onSaved={(n) => {
                     setRecording(false);
@@ -161,31 +195,35 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
               ) : attendingGroups.length === 0 ? (
                 <p className="muted">Aucun de vos groupes n&apos;est concerné par cette séance.</p>
               ) : (
-                attendingGroups.map((group) => (
-                  <div key={group.id} className="mb">
-                    {/* Titre du groupe : nom + objectif commun. */}
-                    <div className="flex-between wrap" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 8 }}>
-                      <strong>{group.name}</strong>
-                      {group.goal && <span className="badge"><Icon name="target" /> {group.goal.label}</span>}
-                    </div>
-
-                    {group.clients.length === 0 ? (
-                      <p className="muted small">Aucun inscrit actif.</p>
-                    ) : (
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {group.clients.map((c) => (
-                          <ClientRow
-                            key={c.id}
-                            client={c}
-                            slot={selectedSlot}
-                            open={openClientId === c.id}
-                            onToggle={() => setOpenClientId(openClientId === c.id ? null : c.id)}
-                          />
-                        ))}
+                attendingGroups.map((group) => {
+                  const progEx = programExercises(group, selectedSlot);
+                  const exercises = progEx.length ? progEx : sessionTypeExercises(selectedSlot);
+                  return (
+                    <div key={group.id} className="mb">
+                      {/* Titre du groupe : nom + objectif commun. */}
+                      <div className="flex-between wrap" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 8 }}>
+                        <strong>{group.name}</strong>
+                        {group.goal && <span className="badge"><Icon name="target" /> {group.goal.label}</span>}
                       </div>
-                    )}
-                  </div>
-                ))
+
+                      {group.clients.length === 0 ? (
+                        <p className="muted small">Aucun inscrit actif.</p>
+                      ) : (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {group.clients.map((c) => (
+                            <ClientRow
+                              key={c.id}
+                              client={c}
+                              exercises={exercises}
+                              open={openClientId === c.id}
+                              onToggle={() => setOpenClientId(openClientId === c.id ? null : c.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           )}
@@ -199,8 +237,7 @@ export default function CoachDashboard({ dashboard, coaches = [], selectedCoachI
  * Ligne « personne à entraîner » : nom + niveau. Au clic, déplie le détail de
  * ce qu'elle doit faire (contenu de la séance) et le bouton vers sa fiche.
  */
-function ClientRow({ client, slot, open, onToggle }) {
-  const exercises = slot.sessionType?.exercises || [];
+function ClientRow({ client, exercises = [], open, onToggle }) {
   const name = `${client.user.firstName} ${client.user.lastName}`;
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 8 }}>
@@ -225,8 +262,8 @@ function ClientRow({ client, slot, open, onToggle }) {
               <thead><tr><th>Exercice</th><th>Séries</th><th>Reps</th><th>Repos</th></tr></thead>
               <tbody>
                 {exercises.map((ex) => (
-                  <tr key={ex.id}>
-                    <td>{ex.exercise?.name}</td>
+                  <tr key={ex.exerciseId}>
+                    <td>{ex.name}</td>
                     <td>{ex.sets}</td>
                     <td>{ex.reps}</td>
                     <td>{ex.restSec != null ? `${ex.restSec} s` : "—"}</td>
@@ -244,20 +281,45 @@ function ClientRow({ client, slot, open, onToggle }) {
   );
 }
 
+// Les trois états de notation d'un exercice, avec leur couleur.
+const RATINGS = [
+  { key: "BON", label: "Bien", icon: "check", color: "var(--green)" },
+  { key: "NEUTRE", label: "Moyen", icon: "arrow-down", color: "var(--amber)" },
+  { key: "MAUVAIS", label: "Pas bien", icon: "x", color: "var(--red)" },
+];
+
 /**
- * Séance en cours : le coach coche les personnes présentes, puis note chaque
- * présent Bien / Pas bien (le « à améliorer » n'est pas proposé ici). Une
+ * Séance en cours. Le coach coche les personnes présentes ; pour chaque présent,
+ * il voit la « séance du jour » (les exercices du programme du groupe) et note
+ * CHAQUE exercice en trois états (Bien / Moyen / Pas bien). La note globale de
+ * la séance est dérivée côté serveur (pour la progression de niveau). Une
  * personne non cochée est absente et n'est pas notée. « Terminer » enregistre
- * présences + rapports en un seul appel.
+ * présences, rapports et notes par exercice en un seul appel.
  */
-function SessionRecorder({ slot, clients, onCancel, onSaved }) {
+function SessionRecorder({ slot, groups, onCancel, onSaved }) {
+  // Chaque participant porte les exercices de la séance du jour de son groupe.
+  const clients = useMemo(
+    () =>
+      groups.flatMap((g) => {
+        const progEx = programExercises(g, slot);
+        const exercises = progEx.length ? progEx : sessionTypeExercises(slot);
+        return g.clients.map((c) => ({ ...c, groupName: g.name, exercises }));
+      }),
+    [groups, slot]
+  );
+
   const [entries, setEntries] = useState(() =>
-    Object.fromEntries(clients.map((c) => [c.id, { present: false, rating: null, note: "" }]))
+    Object.fromEntries(clients.map((c) => [c.id, { present: false, note: "", ex: {} }]))
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const update = (id, patch) => setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  const rateEx = (id, exerciseId, rating) =>
+    setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ex: { ...prev[id].ex, [exerciseId]: rating } } }));
+  const rateAll = (c, rating) =>
+    update(c.id, { ex: Object.fromEntries(c.exercises.map((x) => [x.exerciseId, rating])) });
+
   const presentCount = clients.filter((c) => entries[c.id]?.present).length;
 
   async function finish() {
@@ -268,12 +330,15 @@ function SessionRecorder({ slot, clients, onCancel, onSaved }) {
         sessionTypeId: slot.sessionType?.id || null,
         label: slot.sessionType?.name || null,
         date: new Date().toISOString(),
-        entries: clients.map((c) => ({
-          clientId: c.id,
-          present: !!entries[c.id]?.present,
-          rating: entries[c.id]?.present ? entries[c.id]?.rating : null,
-          note: entries[c.id]?.note || "",
-        })),
+        entries: clients.map((c) => {
+          const e = entries[c.id] || {};
+          const exercises = e.present
+            ? c.exercises
+                .filter((x) => e.ex?.[x.exerciseId])
+                .map((x) => ({ exerciseId: x.exerciseId, rating: e.ex[x.exerciseId] }))
+            : [];
+          return { clientId: c.id, present: !!e.present, note: e.note || "", exercises };
+        }),
       });
       onSaved(res?.recorded ?? clients.length);
     } catch (err) {
@@ -288,7 +353,7 @@ function SessionRecorder({ slot, clients, onCancel, onSaved }) {
     <div>
       {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
       <p className="muted small">
-        Cochez les personnes présentes, puis notez leur séance. {presentCount} présent(s) sur {clients.length}.
+        Cochez les personnes présentes, puis notez chaque exercice de leur séance. {presentCount} présent(s) sur {clients.length}.
       </p>
 
       <div style={{ display: "grid", gap: 8 }}>
@@ -302,39 +367,66 @@ function SessionRecorder({ slot, clients, onCancel, onSaved }) {
                   <input
                     type="checkbox"
                     checked={!!e.present}
-                    onChange={(ev) => update(c.id, { present: ev.target.checked, rating: ev.target.checked ? e.rating : null })}
+                    onChange={(ev) => update(c.id, { present: ev.target.checked })}
                   />
                   <span style={{ fontWeight: 500 }}>{name}</span>
                   <span className="muted small">{c.groupName} · Niveau {c.level ?? 1}/5</span>
                 </label>
-                <div className="flex" style={{ gap: 6 }}>
+                {e.present && c.exercises.length > 0 && (
                   <button
                     type="button"
                     className="btn btn-sm"
-                    disabled={!e.present}
-                    onClick={() => update(c.id, { rating: "BON" })}
-                    style={e.present && e.rating === "BON" ? { background: "var(--green)", color: "#fff", borderColor: "var(--green)" } : undefined}
+                    onClick={() => rateAll(c, "BON")}
+                    title="Noter tous les exercices « Bien »"
                   >
-                    <Icon name="check" /> Bien
+                    <Icon name="check" /> Tout Bien
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    disabled={!e.present}
-                    onClick={() => update(c.id, { rating: "MAUVAIS" })}
-                    style={e.present && e.rating === "MAUVAIS" ? { background: "var(--red)", color: "#fff", borderColor: "var(--red)" } : undefined}
-                  >
-                    <Icon name="x" /> Pas bien
-                  </button>
-                </div>
+                )}
               </div>
+
               {e.present && (
-                <input
-                  className="input mt"
-                  placeholder="Note sur la séance (facultatif)…"
-                  value={e.note}
-                  onChange={(ev) => update(c.id, { note: ev.target.value })}
-                />
+                <div className="mt">
+                  {c.exercises.length === 0 ? (
+                    <p className="muted small" style={{ margin: 0 }}>Aucun exercice dans le programme du groupe.</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {c.exercises.map((x) => (
+                        <div
+                          key={x.exerciseId}
+                          className="flex-between wrap"
+                          style={{ gap: 8, alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 6 }}
+                        >
+                          <span className="small" style={{ fontWeight: 500 }}>
+                            {x.name}
+                            <span className="muted"> · {x.sets}×{x.reps}</span>
+                          </span>
+                          <div className="flex" style={{ gap: 4 }}>
+                            {RATINGS.map((r) => {
+                              const on = e.ex?.[x.exerciseId] === r.key;
+                              return (
+                                <button
+                                  key={r.key}
+                                  type="button"
+                                  className="btn btn-sm"
+                                  onClick={() => rateEx(c.id, x.exerciseId, r.key)}
+                                  style={on ? { background: r.color, color: "#fff", borderColor: r.color } : undefined}
+                                >
+                                  <Icon name={r.icon} /> {r.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    className="input mt"
+                    placeholder="Note sur la séance (facultatif)…"
+                    value={e.note}
+                    onChange={(ev) => update(c.id, { note: ev.target.value })}
+                  />
+                </div>
               )}
             </div>
           );

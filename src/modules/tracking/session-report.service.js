@@ -121,20 +121,37 @@ export async function createSessionReport(clientId, { date, rating, note, sessio
 }
 
 /**
+ * Note globale d'une séance dérivée des notes par exercice :
+ *   - au moins un exercice « Pas bien » (MAUVAIS)      → MAUVAIS
+ *   - tous les exercices notés « Bien » (BON)          → BON
+ *   - sinon (mélange / au moins un « Moyen »)          → NEUTRE
+ * @returns "BON" | "NEUTRE" | "MAUVAIS" | null (aucun exercice noté)
+ */
+function overallRating(ratings) {
+  const noted = ratings.filter((r) => r === "BON" || r === "NEUTRE" || r === "MAUVAIS");
+  if (noted.length === 0) return null;
+  if (noted.some((r) => r === "MAUVAIS")) return "MAUVAIS";
+  if (noted.every((r) => r === "BON")) return "BON";
+  return "NEUTRE";
+}
+
+/**
  * Enregistre une séance de coaching entière depuis l'espace coach : pour chaque
- * participant, sa présence et — s'il est présent — son ressenti (BON / MAUVAIS,
- * le « à améliorer » n'est pas proposé ici). Une personne absente n'est jamais
- * notée.
+ * participant, sa présence et — s'il est présent — la note de CHAQUE exercice de
+ * la séance du jour (programme du groupe) en trois états (BON / NEUTRE /
+ * MAUVAIS). La note globale de la séance (SessionReport.rating) est dérivée des
+ * notes par exercice, ce qui pilote la progression hebdomadaire de niveau. Une
+ * personne absente n'est jamais notée.
  *
  * Idempotent par jour : réenregistrer la même séance (même type de séance, même
- * jour) remplace les présences et rapports existants au lieu de les dupliquer —
- * le coach peut donc corriger sans créer de doublon. Le niveau de chaque
- * participant est recalculé une seule fois à la fin (progression hebdomadaire).
+ * jour) remplace les présences, rapports et notes par exercice existants au lieu
+ * de les dupliquer — le coach peut corriger sans créer de doublon. Le niveau de
+ * chaque participant est recalculé une seule fois à la fin.
  *
  * @param sessionTypeId  type de séance (thématique du créneau), pour rattacher le rapport
  * @param label          intitulé lisible de la séance (ex. « Cardio »), stocké sur la présence
  * @param date           date/heure de la séance (défaut : maintenant)
- * @param entries        [{ clientId, present, rating: "BON"|"MAUVAIS"|null, note? }]
+ * @param entries        [{ clientId, present, note?, exercises: [{ exerciseId, rating: "BON"|"NEUTRE"|"MAUVAIS" }] }]
  */
 export async function recordCoachingSession({ sessionTypeId = null, label = null, date, entries = [] }, { authorId = null } = {}) {
   const when = date ? new Date(date) : new Date();
@@ -147,7 +164,14 @@ export async function recordCoachingSession({ sessionTypeId = null, label = null
     if (!e || !e.clientId) continue;
     const { clientId } = e;
     const present = !!e.present;
-    const rating = present && (e.rating === "BON" || e.rating === "MAUVAIS") ? e.rating : null;
+
+    // Notes par exercice valides (uniquement si présent).
+    const exResults = present && Array.isArray(e.exercises)
+      ? e.exercises.filter(
+          (x) => x && x.exerciseId && ["BON", "NEUTRE", "MAUVAIS"].includes(x.rating),
+        )
+      : [];
+    const rating = overallRating(exResults.map((x) => x.rating));
 
     // Présence : on efface celle du jour (même intitulé) avant de réécrire.
     await prisma.attendance.deleteMany({
@@ -156,6 +180,7 @@ export async function recordCoachingSession({ sessionTypeId = null, label = null
     await prisma.attendance.create({ data: { clientId, date: when, present, label: label || null } });
 
     // Rapport de séance : on efface celui du jour (même type) avant de réécrire.
+    // Ses notes par exercice partent en cascade (onDelete: Cascade).
     await prisma.sessionReport.deleteMany({
       where: { clientId, sessionTypeId, date: { gte: dayStart, lte: dayEnd } },
     });
@@ -169,6 +194,15 @@ export async function recordCoachingSession({ sessionTypeId = null, label = null
           note: e.note || null,
           sessionTypeId: sessionTypeId || null,
           authorId: authorId || null,
+          exerciseResults: {
+            create: exResults.map((x) => ({
+              clientId,
+              date: when,
+              exerciseId: x.exerciseId,
+              rating: x.rating,
+              note: x.note || null,
+            })),
+          },
         },
       });
     }

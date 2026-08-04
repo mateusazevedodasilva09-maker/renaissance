@@ -330,6 +330,7 @@ model Client {
   coachNotes   ClientNote[]
   sessionReports SessionReport[]
   levelChanges   WeeklyLevelChange[]
+  exerciseResults ExerciseResult[]
 }
 
 // Objectifs (perte de poids, prise de muscle, remise en forme…). Utilisés
@@ -477,6 +478,8 @@ model Exercise {
   strengthLogs StrengthLog[]
   // Thématiques de séances de groupe qui incluent cet exercice.
   sessionTypeItems SessionTypeExercise[]
+  // Notations par exercice saisies par le coach pendant une séance.
+  exerciseResults ExerciseResult[]
 }
 
 enum ProgramStatus {
@@ -807,8 +810,38 @@ model SessionReport {
   strengthLog   StrengthLog? @relation("ReportPR", fields: [strengthLogId], references: [id], onDelete: SetNull)
   strengthLogId String?      @unique
 
+  // Détail de la séance : une note par exercice (voir ExerciseResult). La note
+  // globale ci-dessus (`rating`) est dérivée de ces notes par exercice.
+  exerciseResults ExerciseResult[]
+
   @@index([clientId, date])
   @@index([clientId, weekStart])
+}
+
+// Notation d'UN exercice pour UN client lors d'une séance de coaching. Le coach,
+// depuis « Mes coachings », voit la séance du jour (programme du groupe) et note
+// chaque exercice de chaque participant présent en trois états (Bien / Moyen /
+// Pas bien → BON / NEUTRE / MAUVAIS). Ces notes détaillées sont rattachées au
+// rapport de séance (SessionReport), dont la note globale est dérivée.
+model ExerciseResult {
+  id        String        @id @default(cuid())
+  date      DateTime      @default(now())
+  rating    SessionRating
+  note      String?
+  createdAt DateTime      @default(now())
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exerciseId String
+
+  // Rapport de séance parent : supprimer le rapport supprime ses notes détaillées.
+  report   SessionReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId String?
+
+  @@index([clientId, date])
+  @@index([reportId])
 }
 
 // Trace idempotente de la variation de niveau appliquée pour une semaine
