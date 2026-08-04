@@ -1,6 +1,6 @@
 import { handle, ok, requireAuth } from "@/lib/api";
 import { generateProgram, regenerateClientProgram } from "@/modules/programs/program.service";
-import { createBlankProgram, createBlankProgramForGoal } from "@/modules/programs/program-editor.service";
+import { createBlankProgram, createBlankProgramForGoal, createBlankProgramForGroup } from "@/modules/programs/program-editor.service";
 import { listGenerators } from "@/modules/programs/generation/registry";
 
 /** Liste des générateurs disponibles (pilote le formulaire admin). */
@@ -23,6 +23,11 @@ export const POST = handle(async (req) => {
   // tous les clients de l'objectif ; les coachs peuvent le modifier.
   if (body.blank && body.goalId) {
     return ok(await createBlankProgramForGoal(body.goalId, { title: body.title }, { userId: session.userId }), { status: 201 });
+  }
+  // Programme vierge de GROUPE : le coach le construit pour tout le groupe ;
+  // il est prioritaire pour les membres.
+  if (body.blank && body.groupId) {
+    return ok(await createBlankProgramForGroup(body.groupId, { title: body.title }, { userId: session.userId }), { status: 201 });
   }
   // Régénération automatique depuis le profil du client (objectif + niveau),
   // sans avoir à saisir de paramètres.

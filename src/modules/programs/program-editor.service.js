@@ -75,6 +75,29 @@ export async function createBlankProgramForGoal(goalId, { title } = {}, { userId
   });
 }
 
+/**
+ * Crée un programme VIERGE pour un GROUPE d'entraînement, construit à la main
+ * par le coach. Devient le programme actif du groupe — prioritaire pour tous ses
+ * membres. Les coachs le modifient ensuite via le même éditeur.
+ */
+export async function createBlankProgramForGroup(groupId, { title } = {}, { userId = null } = {}) {
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) throw new ApiError("Groupe introuvable.", 404);
+
+  await prisma.program.updateMany({ where: { groupId, status: "ACTIVE" }, data: { status: "ARCHIVED" } });
+
+  return prisma.program.create({
+    data: {
+      title: title?.trim() || `Programme — ${group.name}`,
+      status: "ACTIVE",
+      groupId,
+      createdById: userId,
+      sessions: { create: [{ name: "Jour 1", position: 0 }] },
+    },
+    include: fullInclude,
+  });
+}
+
 // ===========================================================================
 // JOURS (ProgramSession)
 // ===========================================================================

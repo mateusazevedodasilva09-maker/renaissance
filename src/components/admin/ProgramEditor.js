@@ -33,7 +33,7 @@ async function api(path, method, body) {
   return json.data;
 }
 
-export default function ProgramEditor({ initialProgram, exercises, clientId, goalId, onProgramReplaced }) {
+export default function ProgramEditor({ initialProgram, exercises, clientId, goalId, groupId, onProgramReplaced }) {
   const [program, setProgram] = useState(initialProgram);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false); // mode édition activé/désactivé
@@ -67,8 +67,12 @@ export default function ProgramEditor({ initialProgram, exercises, clientId, goa
   // Crée un programme vierge (aucun objectif requis) puis passe directement en
   // mode édition pour construire les jours et exercices à la main.
   async function createBlank() {
-    // Cible : un client (programme personnel) OU un objectif (programme partagé).
-    const payload = goalId ? { goalId, blank: true } : { clientId, blank: true };
+    // Cible : un groupe, un objectif, ou un client (programme personnel).
+    const payload = groupId
+      ? { groupId, blank: true }
+      : goalId
+        ? { goalId, blank: true }
+        : { clientId, blank: true };
     const created = await mutate(() => api("/api/programs", "POST", payload));
     if (created) setEditing(true);
   }

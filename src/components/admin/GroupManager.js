@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import LineChart from "@/components/charts/LineChart";
+import ProgramEditor from "@/components/admin/ProgramEditor";
 
 async function api(path, method, body) {
   const res = await fetch(path, {
@@ -20,12 +21,13 @@ async function api(path, method, body) {
   return json.data;
 }
 
-export default function GroupManager({ initialGroups, goals, staff, stats = {}, allClients = [], isAdmin }) {
+export default function GroupManager({ initialGroups, goals, staff, stats = {}, allClients = [], exercises = [], isAdmin }) {
   const [groups, setGroups] = useState(initialGroups);
   const [editing, setEditing] = useState(null); // groupe en cours d'édition
   const [creating, setCreating] = useState(false);
   const [advising, setAdvising] = useState(null); // groupe pour le conseil
   const [addingTo, setAddingTo] = useState(null); // groupe où ajouter un membre
+  const [programFor, setProgramFor] = useState(null); // groupe dont on édite le programme
   const [error, setError] = useState(null);
 
   const coaches = staff.filter((s) => s.role === "COACH" || s.role === "ADMIN");
@@ -123,6 +125,7 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
                 onRemove={() => remove(g)}
                 onAddMember={() => setAddingTo(g)}
                 onDetachMember={(clientId) => detachMember(g, clientId)}
+                onProgram={() => setProgramFor(g)}
               />
             ))}
           </div>
@@ -158,6 +161,13 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
           }}
         />
       )}
+      {programFor && (
+        <ProgramModal
+          group={programFor}
+          exercises={exercises}
+          onClose={() => setProgramFor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -170,7 +180,7 @@ export default function GroupManager({ initialGroups, goals, staff, stats = {}, 
  * (niveau moyen + courbe du poids moyen). Le bouton « Conseil de la semaine »
  * passe en vert quand un conseil a déjà été envoyé pour la semaine en cours.
  */
-function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove, onAddMember, onDetachMember }) {
+function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove, onAddMember, onDetachMember, onProgram }) {
   const [open, setOpen] = useState(false);
   const sent = stat?.hasAdviceThisWeek;
   const full = g.clients.length >= g.capacity;
@@ -239,6 +249,9 @@ function GroupCard({ group: g, stat, isAdmin, onAdvise, onEdit, onRemove, onAddM
       )}
 
       <div className="flex wrap mt">
+        <button className="btn btn-sm" onClick={onProgram} title="Construire / modifier le programme du groupe">
+          <Icon name="pencil" /> Programme du groupe
+        </button>
         <button
           className="btn btn-sm"
           onClick={onAdvise}
@@ -316,6 +329,49 @@ function GroupModal({ group, goals, coaches, onClose, onSaved }) {
             <button className="btn btn-primary">{group ? "Enregistrer" : "Créer"}</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* --- Programme du groupe ---------------------------------------------------------- */
+
+/**
+ * Éditeur du programme d'entraînement du groupe, dans une grande fenêtre. On
+ * charge le programme actif du groupe (s'il existe) puis on réutilise le même
+ * éditeur que la fiche client / l'objectif, ciblé sur le groupe (groupId). Le
+ * programme du groupe est prioritaire pour tous ses membres dans leur espace.
+ */
+function ProgramModal({ group, exercises, onClose }) {
+  const [program, setProgram] = useState(undefined); // undefined = en cours de chargement
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    api(`/api/groups/${group.id}/program`, "GET")
+      .then((p) => setProgram(p || null))
+      .catch((err) => { setError(err.message); setProgram(null); });
+  }, [group.id]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 960, width: "95%" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-between mb">
+          <h3 style={{ margin: 0 }}>Programme du groupe — {group.name}</h3>
+          <button className="btn btn-sm" onClick={onClose}><Icon name="x" /> Fermer</button>
+        </div>
+        <p className="muted small">
+          Ce programme est celui que suivent tous les membres du groupe dans leur espace (prioritaire sur leur programme personnel).
+        </p>
+        {error && <div className="alert alert-error">{error}</div>}
+        {program === undefined ? (
+          <p className="muted">Chargement…</p>
+        ) : (
+          <ProgramEditor
+            initialProgram={program}
+            exercises={exercises}
+            groupId={group.id}
+          />
+        )}
       </div>
     </div>
   );

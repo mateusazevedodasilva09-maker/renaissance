@@ -41,14 +41,26 @@ export async function getProgram(id) {
 }
 
 /**
- * Programme actif vu par le client dans son espace : son programme personnel
- * s'il en a un, sinon le programme rattaché à l'un de ses objectifs
- * (« objectif = groupe = programme »).
+ * Programme actif vu par le client dans son espace, par ordre de priorité :
+ *   1. le programme de son groupe d'entraînement (construit par le coach pour
+ *      tout le groupe) — prioritaire, c'est le programme qu'il suit en séance ;
+ *   2. son programme personnel (auto-généré depuis son profil s'il manque) ;
+ *   3. le programme rattaché à l'un de ses objectifs.
  */
 export async function getActiveProgramForClient(clientId) {
-  // Génère automatiquement le programme s'il manque (objectif + niveau du profil).
-  await ensureClientProgram(clientId);
+  // 1. Programme du groupe : prioritaire pour tous les membres du groupe.
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { groupId: true } });
+  if (client?.groupId) {
+    const groupProgram = await prisma.program.findFirst({
+      where: { groupId: client.groupId, status: "ACTIVE" },
+      include: fullInclude,
+      orderBy: { createdAt: "desc" },
+    });
+    if (groupProgram) return groupProgram;
+  }
 
+  // 2. Programme personnel (généré automatiquement s'il manque : objectif + niveau).
+  await ensureClientProgram(clientId);
   const personal = await prisma.program.findFirst({
     where: { clientId, status: "ACTIVE" },
     include: fullInclude,
@@ -56,7 +68,7 @@ export async function getActiveProgramForClient(clientId) {
   });
   if (personal) return personal;
 
-  // Repli : le programme de l'objectif du client (programme de groupe).
+  // 3. Repli : le programme de l'objectif du client.
   const goals = await prisma.clientGoal.findMany({ where: { clientId }, select: { goalId: true } });
   const goalIds = goals.map((g) => g.goalId);
   if (goalIds.length === 0) return null;
@@ -71,6 +83,15 @@ export async function getActiveProgramForClient(clientId) {
 export function getActiveProgramForGoal(goalId) {
   return prisma.program.findFirst({
     where: { goalId, status: "ACTIVE" },
+    include: fullInclude,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Programme actif construit par le coach pour un groupe d'entraînement. */
+export function getActiveProgramForGroup(groupId) {
+  return prisma.program.findFirst({
+    where: { groupId, status: "ACTIVE" },
     include: fullInclude,
     orderBy: { createdAt: "desc" },
   });

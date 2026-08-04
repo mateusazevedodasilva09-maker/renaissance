@@ -504,19 +504,23 @@ model Program {
   isTemplate       Boolean @default(false)
 
   // Un programme est soit personnel (clientId), soit rattaché à un objectif
-  // de groupe (goalId). L'un des deux au moins est renseigné.
+  // (goalId), soit rattaché à un groupe d'entraînement (groupId). Le programme
+  // de groupe est prioritaire pour ses membres.
   client      Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   clientId    String?
   goal        Goal?   @relation(fields: [goalId], references: [id], onDelete: Cascade)
   goalId      String?
+  group       Group?  @relation("GroupProgram", fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String?
   createdBy   User?   @relation("ProgramAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
   sessions ProgramSession[]
 
-  // Index des accès chauds : programme actif par client / par objectif.
+  // Index des accès chauds : programme actif par client / objectif / groupe.
   @@index([clientId, status])
   @@index([goalId, status])
+  @@index([groupId, status])
 }
 
 // Une "session" de programme = une journée d'entraînement du programme.
@@ -595,6 +599,8 @@ model Group {
   advices WeeklyAdvice[]
   // Créneaux hebdomadaires explicitement placés sur ce groupe par l'admin.
   slots   WeeklySlot[]
+  // Programmes d'entraînement construits par le coach pour tout le groupe.
+  programs Program[] @relation("GroupProgram")
 }
 
 // ===========================================================================
