@@ -70,6 +70,9 @@
   --z-modal: 50;
   --z-toast: 80;
 
+  /* — Mobile — hauteur de la barre d'onglets du bas (hors safe-area) — */
+  --tabbar-h: 58px;
+
   --font-display: "Spectral", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -136,7 +139,13 @@ html, body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Mobile : jamais de défilement horizontal parasite. */
+  overflow-x: hidden;
+  max-width: 100%;
 }
+
+/* Les médias et blocs larges ne débordent jamais de leur conteneur. */
+img, svg, video, canvas { max-width: 100%; height: auto; }
 
 /* Grain subtil fixe sur toute la page : casse la platitude du flat design
    sans jamais gêner l'interaction. */
@@ -303,6 +312,9 @@ p { margin: 0 0 10px; text-wrap: pretty; }
 }
 .page-header .subtitle { color: var(--text-dim); font-size: 14.5px; max-width: 62ch; }
 
+/* Barres mobiles : masquées en desktop, activées sous 900px (voir plus bas). */
+.mobile-topbar, .mobile-tabbar { display: none; }
+
 /* --- Composants ------------------------------------------------------------ */
 
 .card {
@@ -397,6 +409,8 @@ p { margin: 0 0 10px; text-wrap: pretty; }
 .btn-danger { background: transparent; border-color: var(--red); color: var(--red); box-shadow: none; }
 .btn-danger:hover { background: rgba(204, 59, 44, 0.06); border-color: var(--red); }
 .btn-sm { padding: 5px 13px; font-size: 13px; }
+/* Bouton carré icône seule (barre supérieure mobile). */
+.btn-icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 
 .input, select.input, textarea.input {
   width: 100%;
@@ -615,7 +629,7 @@ textarea.input { resize: vertical; min-height: 84px; }
     var(--bg);
   overflow: hidden;
 }
-.public-card { width: 100%; max-width: 400px; }
+.public-card { width: 100%; max-width: 400px; min-width: 0; }
 .public-card .card {
   padding: 36px;
   border-radius: var(--radius-lg);
@@ -693,30 +707,106 @@ textarea.input { resize: vertical; min-height: 84px; }
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
+/* ==========================================================================
+   MOBILE — navigation façon application native.
+   Sous 900px on abandonne la barre latérale : une barre supérieure porte la
+   marque et les réglages, une barre d'onglets fixée en bas porte la navigation
+   (toujours accessible au pouce). Le contenu et les notifications sont décalés
+   pour ne jamais passer sous la barre d'onglets.
+   ========================================================================== */
 @media (max-width: 900px) {
-  .app-shell { flex-direction: column; }
-  .sidebar {
-    width: 100%; height: auto; position: sticky; top: 0;
-    z-index: var(--z-sticky);
-    flex-direction: row; flex-wrap: nowrap;
-    gap: 6px;
-    overflow-x: auto;
-    border-right: none; border-bottom: 1px solid var(--border);
-    -webkit-overflow-scrolling: touch;
+  .app-shell { display: block; }
+  .sidebar { display: none !important; }
+
+  /* — Barre supérieure : marque + thème + déconnexion — */
+  .mobile-topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    padding: 9px 14px;
+    padding-top: calc(9px + env(safe-area-inset-top));
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
   }
-  /* Menu en barre horizontale défilable : chaque lien garde sa taille. */
-  .sidebar .brand { padding: 6px 10px; flex-shrink: 0; }
-  .sidebar .section-label { display: none; }
-  .nav-link { flex-shrink: 0; white-space: nowrap; }
-  .nav-link.active::before { display: none; }
-  /* Le bloc de pied (thème, déconnexion) repasse en ligne. */
-  .sidebar > div:last-child { margin-top: 0 !important; flex-direction: row !important; align-items: center; padding: 6px 10px !important; flex-shrink: 0; }
-  .main { padding: 20px; }
+  .mobile-topbar-brand {
+    display: flex; align-items: center; gap: 9px;
+    font-family: var(--font-display); font-weight: 600; font-size: 18px;
+    letter-spacing: -0.005em;
+  }
+  .mobile-topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* — Contenu : marges resserrées + réserve sous la barre d'onglets — */
+  .main { padding: 18px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 22px); }
+
+  /* — Barre d'onglets du bas — */
+  .mobile-tabbar {
+    display: flex; align-items: stretch;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky);
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -1px 12px rgba(0, 0, 0, 0.05);
+  }
+  .tabbar-link {
+    flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 7px 2px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-faint);
+    font-size: 10.5px; font-weight: 500; font-family: inherit;
+    text-decoration: none;
+    transition: color var(--dur) var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tabbar-link span {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tabbar-link.active { color: var(--accent); }
+  .tabbar-link:active { background: var(--hover-row); }
+
+  /* — Feuille « Plus » : reste des sections (admin) — */
+  .tabbar-sheet-backdrop {
+    position: fixed; inset: 0; z-index: var(--z-modal);
+    background: rgba(0, 0, 0, 0.42);
+    display: flex; align-items: flex-end;
+    animation: fade-in 160ms var(--ease);
+  }
+  .tabbar-sheet {
+    width: 100%;
+    margin-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    background: var(--panel);
+    border-top-left-radius: 20px; border-top-right-radius: 20px;
+    padding: 10px 14px 18px;
+    box-shadow: var(--shadow-lg);
+    animation: pop-in 220ms var(--ease);
+  }
+  .tabbar-sheet-handle {
+    width: 40px; height: 4px; border-radius: 4px;
+    background: var(--border-strong); margin: 4px auto 14px;
+  }
+  .tabbar-sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .tabbar-sheet-link {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 15px 6px; border-radius: 14px;
+    border: 1px solid var(--border); background: var(--bg-soft);
+    color: var(--text-dim); font-size: 11.5px; font-weight: 500; text-align: center;
+    line-height: 1.2;
+  }
+  .tabbar-sheet-link.active { border-color: var(--accent); color: var(--text); }
+
+  /* — Notifications staff : au-dessus de la barre d'onglets — */
+  .notif-badge { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px) !important; }
+  .notif-toast { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px) !important; }
 }
 
 /* Téléphone : on empile les grilles et on resserre les marges. */
 @media (max-width: 640px) {
-  .main { padding: 14px 14px 48px; }
+  /* Marges resserrées, en conservant la réserve sous la barre d'onglets. */
+  .main { padding: 14px 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 20px); }
   h1 { font-size: 27px; }
   h2 { font-size: 21px; }
   .grid-2, .grid-4 { grid-template-columns: 1fr; }
@@ -730,4 +820,31 @@ textarea.input { resize: vertical; min-height: 84px; }
   .cal-cell { min-height: 62px; }
   .cal-event { font-size: 10px; }
   .kanban-col { min-width: 210px; width: 210px; }
+
+  /* Pages publiques (accueil, connexion, inscription, onboarding) : marges
+     resserrées et carte pleine largeur, jamais coupée. */
+  .public-wrap { padding: 14px; }
+  .public-card { max-width: 100%; }
+  .public-card .card { padding: 22px; }
+  .public-card h1 { font-size: 27px; }
+  .public-card h2 { font-size: 22px; }
+
+  /* Tableaux larges (utilisateurs, CRM, clients…) : ils défilent DANS leur
+     carte au lieu de déborder de l'écran. */
+  .card { overflow-x: auto; }
+  .table { min-width: 100%; }
+
+  /* Boutons plus faciles à toucher + retour à la ligne des barres d'actions. */
+  .flex, .flex-between { flex-wrap: wrap; }
+  .btn { padding: 10px 16px; }
+  .btn-sm { padding: 7px 12px; }
+
+  /* Modale : quasi plein écran, confortable au pouce. */
+  .modal { max-width: 100%; max-height: 92dvh; }
+  .modal-backdrop { padding: 10px; }
+}
+
+/* Messagerie : deux colonnes en desktop → empilées sur mobile. */
+@media (max-width: 760px) {
+  .messages-layout { grid-template-columns: 1fr !important; }
 }

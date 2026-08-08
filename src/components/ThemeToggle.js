@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ compact = false }) {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
@@ -21,6 +21,15 @@ export default function ThemeToggle() {
     try {
       localStorage.setItem("renaissance-theme", next);
     } catch {}
+  }
+
+  // Version compacte (icône seule) pour la barre supérieure mobile.
+  if (compact) {
+    return (
+      <button type="button" className="btn btn-sm btn-icon" onClick={toggle} title="Changer de thème" aria-label="Changer de thème">
+        {theme === "light" ? <Icon name="moon" /> : <Icon name="sun" />}
+      </button>
+    );
   }
 
   return (

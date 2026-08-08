@@ -5,8 +5,9 @@ export const metadata = {
   description: "Essência — coaching sportif. A força vem de dentro.",
 };
 
-// Adaptation mobile : largeur réelle de l'appareil.
-export const viewport = { width: "device-width", initialScale: 1 };
+// Adaptation mobile : largeur réelle de l'appareil + prise en charge des
+// « safe areas » (encoche, barre home iOS) grâce à viewport-fit=cover.
+export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 /** Applique le thème enregistré avant le premier rendu (évite le flash). */
 const themeScript = `

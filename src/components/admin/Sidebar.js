@@ -1,10 +1,34 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
 import Logo from "@/components/Logo";
+import MobileTopBar from "@/components/MobileTopBar";
+import MobileTabBar from "@/components/MobileTabBar";
+
+// Onglets principaux de la barre mobile (bas d'écran). Le reste des sections
+// passe dans la feuille « Plus ». Libellés courts adaptés au petit écran.
+const MOBILE_PRIMARY = ["/admin", "/admin/cockpit", "/admin/clients", "/admin/agenda"];
+const MOBILE_SHORT = {
+  "/admin": "Accueil",
+  "/admin/cockpit": "Besoin",
+  "/admin/seance-du-jour": "Séance",
+  "/admin/agenda": "Agenda",
+  "/admin/crm": "CRM",
+  "/admin/clients": "Clients",
+  "/admin/groupes": "Groupes",
+  "/admin/objectifs": "Objectifs",
+  "/admin/programmes": "Programmes",
+  "/admin/messages": "Messages",
+  "/coach": "Coach",
+  "/admin/seances": "Séances",
+  "/admin/exercices": "Exercices",
+  "/admin/utilisateurs": "Utilisateurs",
+};
+const mobileLink = (l) => ({ href: l.href, label: MOBILE_SHORT[l.href] || l.label, icon: l.icon, exact: l.exact });
 
 /** Liens du menu — filtrés selon le rôle (admin ou coach). */
 const LINKS = [
@@ -28,8 +52,21 @@ const LINKS = [
 
 export default function Sidebar({ userName, role = "ADMIN", children }) {
   const pathname = usePathname();
+
+  // Liens autorisés pour ce rôle → répartis en onglets principaux + « Plus ».
+  const roleLinks = LINKS.filter((l) => l.roles.includes(role));
+  const primary = MOBILE_PRIMARY.map((h) => roleLinks.find((l) => l.href === h)).filter(Boolean).map(mobileLink);
+  const more = roleLinks.filter((l) => !MOBILE_PRIMARY.includes(l.href)).map(mobileLink);
+
   return (
-    <aside className="sidebar">
+    <>
+      {/* Mobile : barre supérieure + barre d'onglets (masquées en desktop). */}
+      <MobileTopBar subtitle={role === "COACH" ? "Espace coach" : "Admin"} />
+      <Suspense fallback={null}>
+        <MobileTabBar links={primary} moreLinks={more} />
+      </Suspense>
+
+      <aside className="sidebar">
       <div className="brand">
         <div className="brand-badge"><Logo /></div>
         <div>
@@ -58,5 +95,6 @@ export default function Sidebar({ userName, role = "ADMIN", children }) {
         {children}
       </div>
     </aside>
+    </>
   );
 }

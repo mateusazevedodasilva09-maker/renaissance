@@ -2,6 +2,7 @@
  * Layout de l'espace client. Vérifie qu'un profil client actif existe ;
  * l'admin/coach connecté est redirigé vers son propre espace.
  */
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -12,6 +13,16 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
 import OnboardingFlow from "@/components/espace/OnboardingFlow";
 import Logo from "@/components/Logo";
+import MobileTopBar from "@/components/MobileTopBar";
+import MobileTabBar from "@/components/MobileTabBar";
+
+// Onglets de la barre mobile (bas d'écran) — mêmes destinations que le menu.
+const MOBILE_LINKS = [
+  { href: "/espace", label: "Séances", icon: "calendar", exact: true },
+  { href: "/espace/programme", label: "Programme", icon: "dumbbell" },
+  { href: "/espace/suivi", label: "Suivi", icon: "chart" },
+  { href: "/espace/feedback", label: "Coach", icon: "message" },
+];
 
 export const metadata = { title: "Essência — Mon espace" };
 export const dynamic = "force-dynamic";
@@ -66,6 +77,10 @@ export default async function EspaceLayout({ children }) {
 
   return (
     <div className="app-shell">
+      {/* Mobile : barre supérieure (marque + réglages). */}
+      <MobileTopBar subtitle="Mon espace" />
+
+      {/* Desktop : barre latérale classique. */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-badge"><Logo /></div>
@@ -85,7 +100,13 @@ export default async function EspaceLayout({ children }) {
           <LogoutButton />
         </div>
       </aside>
+
       <main className="main">{children}</main>
+
+      {/* Mobile : barre d'onglets fixée en bas. */}
+      <Suspense fallback={null}>
+        <MobileTabBar links={MOBILE_LINKS} />
+      </Suspense>
     </div>
   );
 }

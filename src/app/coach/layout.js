@@ -12,13 +12,25 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Icon from "@/components/Icon";
 import CoachNav from "@/components/coach/CoachNav";
 import Logo from "@/components/Logo";
+import MobileTopBar from "@/components/MobileTopBar";
+import MobileTabBar from "@/components/MobileTabBar";
 
 export const metadata = { title: "Essência — Espace coach" };
+
+// Onglets de la barre mobile (bas d'écran) pour l'espace coach.
+const MOBILE_LINKS = [
+  { href: "/coach", label: "Coachés", icon: "dumbbell", exact: true },
+  { href: "/coach/besoin", label: "Besoin", icon: "heart" },
+  { href: "/coach/planning", label: "Planning", icon: "calendar" },
+  { href: "/coach/taches", label: "Tâches", icon: "clipboard" },
+];
 
 export default async function CoachLayout({ children }) {
   const session = await getSession();
   return (
     <div className="app-shell">
+      <MobileTopBar subtitle="Espace coach" />
+
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-badge"><Logo /></div>
@@ -45,6 +57,11 @@ export default async function CoachLayout({ children }) {
         </div>
       </aside>
       <main className="main">{children}</main>
+
+      {/* Mobile : barre d'onglets fixée en bas (conserve ?coach= pour l'admin). */}
+      <Suspense fallback={null}>
+        <MobileTabBar links={MOBILE_LINKS} preserveParam="coach" />
+      </Suspense>
     </div>
   );
 }
